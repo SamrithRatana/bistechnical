@@ -3,9 +3,9 @@
 # ============================
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
-EXPOSE 8085 8087 8081 5000 6379
+EXPOSE 8085 8087 8081 5000
 
-# Install required libraries, fonts, supervisor, and Redis server
+# Install required libraries, fonts, and supervisor (Redis removed — using managed Upstash Redis)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libc6 libicu-dev libfontconfig1 libgdiplus libx11-6 libxrender1 libxext6 \
@@ -13,7 +13,7 @@ RUN apt-get update && \
         libjpeg62-turbo libpng16-16 zlib1g libxrandr2 libxinerama1 libxcursor1 \
         libxi6 libharfbuzz0b libpango-1.0-0 libxcb1 libpixman-1-0 \
         libatk-bridge2.0-0 libatk1.0-0 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 \
-        ca-certificates curl gnupg lsb-release wkhtmltopdf supervisor redis-server && \
+        ca-certificates curl gnupg lsb-release wkhtmltopdf supervisor && \
     rm -rf /var/lib/apt/lists/*
 
 # ============================
@@ -32,10 +32,7 @@ COPY ["ServiceMaintenanceApplication.sln", "./"]
 # ── Copy ALL .csproj files (layer-cache friendly) ───────
 COPY ["ServiceMaintenance/ServiceMaintenance.csproj",                                             "ServiceMaintenance/"]
 COPY ["ServiceMaintenance.Models/ServiceMaintenance.Models.csproj",                               "ServiceMaintenance.Models/"]
-
-# ✅ FIXED: Infrastructure.Shared was missing — causes restore to fail
 COPY ["ServiceMaintenance.Infrastructure.Shared/ServiceMaintenance.Infrastructure.Shared.csproj", "ServiceMaintenance.Infrastructure.Shared/"]
-
 COPY ["UserManagementAPI/UserManagementAPI.csproj",                                               "UserManagementAPI/"]
 COPY ["BlazorApplication/EmployeeManagement.Api/EmployeeManagement.Api.csproj",                   "BlazorApplication/EmployeeManagement.Api/"]
 COPY ["BlazorApplication/EmployeeManagement.Models/EmployeeManagement.Models.csproj",             "BlazorApplication/EmployeeManagement.Models/"]
@@ -136,7 +133,7 @@ COPY --from=publish /app/publish/usermanagementapi     ./usermanagementapi
 COPY --from=publish /app/publish/employeemanagementapi ./employeemanagementapi
 COPY --from=publish /app/publish/technicalserviceapi   ./technicalserviceapi
 
-# ── Create required directories ───────────────────────────
+# ── Create required directories (no Redis dirs needed) ───
 RUN mkdir -p \
         /app/servicemaintenance/wwwroot/images/spareparts \
         /app/servicemaintenance/wwwroot/uploads \
@@ -148,9 +145,7 @@ RUN mkdir -p \
         /app/usermanagementapi/logs \
         /app/employeemanagementapi/logs \
         /app/technicalserviceapi/logs \
-        /var/log/supervisor \
-        /var/lib/redis \
-        /var/log/redis && \
+        /var/log/supervisor && \
     chmod -R 755 \
         /app/servicemaintenance/wwwroot \
         /app/servicemaintenance/dataprotection-keys \
@@ -160,14 +155,13 @@ RUN mkdir -p \
         /app/usermanagementapi/logs \
         /app/employeemanagementapi/logs \
         /app/technicalserviceapi/logs \
-        /var/log/supervisor && \
-    chown -R redis:redis /var/lib/redis /var/log/redis
+        /var/log/supervisor
 
 # ── Fix libgdiplus symlink + rebuild font cache ───────────
 RUN ln -sf /usr/lib/x86_64-linux-gnu/libgdiplus.so /usr/lib/libgdiplus.so || true && \
     fc-cache -fv
 
-# ── Supervisor config ─────────────────────────────────────
+# ── Supervisor config (Redis removed — using managed Upstash) ─
 RUN mkdir -p /etc/supervisor/conf.d
 
 COPY <<'EOF' /etc/supervisor/conf.d/supervisord.conf
@@ -177,23 +171,6 @@ user=root
 logfile=/var/log/supervisor/supervisord.log
 pidfile=/var/run/supervisord.pid
 loglevel=info
-
-; ── Redis — port 6379 (LOCAL, in-container cache/broker) ──
-; Runs as root at the supervisor level ONLY to fix ownership of the
-; mounted named volume on every container start (named volumes mount
-; as root-owned, overriding the chown done at image build time above).
-; redis-server itself then takes over the process via exec.
-[program:redis]
-command=/bin/sh -c "chown -R redis:redis /var/lib/redis && exec redis-server --bind 127.0.0.1 --port 6379 --save 60 1 --loglevel warning"
-directory=/var/lib/redis
-autostart=true
-autorestart=true
-startsecs=5
-startretries=5
-priority=1
-stderr_logfile=/var/log/redis.err.log
-stdout_logfile=/var/log/redis.out.log
-user=root
 
 ; ── ServiceMaintenance (Blazor) — port 8085 ──────────────
 [program:servicemaintenance]
