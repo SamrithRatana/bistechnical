@@ -1,0 +1,132 @@
+﻿@inject ILocalStorageService LocalStorage
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<!-- Button with flag and text based on current culture -->
+<button class="btn no-background language-selector-btn" @onclick="ShowLanguageSelector">
+    <div class="language-selector-content">
+        <img src="@GetFlagUrl(currentCulture)" class="flag-icon" />
+        <span class="language-text">@GetLanguageText(currentCulture)</span>
+    </div>
+</button>
+
+@if (isModalVisible)
+{
+    <div class="modal">
+        <!-- Modal Overlay: Close modal when clicking outside -->
+        <div class="modal-overlay" @onclick="CloseModal"></div>
+        <div class="modal-content" @onclick="StopPropagation">
+            <!-- Prevent modal from closing on click inside -->
+            <button class="close-btn" @onclick="CloseModal">&times;</button>
+            <h2 class="modal-title">@Loc[nameof(ResourceStrings.TextSelectLanuage)]</h2> <!-- Title added here -->
+            <div class="language-selector">
+                <label>
+                    <input type="radio" name="language" value="en-US" @onchange="ChangeLanguage" checked="@(currentCulture == "en-US")" />
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg" class="flag-icon" />
+                    English (US)
+                </label>
+                <label>
+                    <input type="radio" name="language" value="km-KH" @onchange="ChangeLanguage" checked="@(currentCulture == "km-KH")" />
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Flag_of_Cambodia.svg" class="flag-icon" />
+                    ខ្មែរ (Cambodia)
+                </label>
+                <label>
+                    <input type="radio" name="language" value="zh-CN" @onchange="ChangeLanguage" checked="@(currentCulture == "zh-CN")" disabled />
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Flag_of_the_People%27s_Republic_of_China.svg/800px-Flag_of_the_People%27s_Republic_of_China.svg.png" class="flag-icon" />
+                    中文 (Chinese)
+                </label>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private string currentCulture = "en-US";
+    private bool isModalVisible = false;
+
+    // CHANGED: Moved from OnInitializedAsync to OnAfterRenderAsync
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Now it's safe to access LocalStorage after first render
+                var storedCulture = await LocalStorage.GetItemAsStringAsync("AppCulture");
+                if (!string.IsNullOrEmpty(storedCulture))
+                {
+                    currentCulture = storedCulture;
+                    StateHasChanged(); // Refresh UI with loaded culture
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error loading culture from LocalStorage: {ex.Message}");
+                currentCulture = "en-US";
+            }
+        }
+    }
+
+    private async Task ChangeLanguage(ChangeEventArgs e)
+    {
+        var selectedCulture = e.Value.ToString();
+
+        try
+        {
+            await LocalStorage.SetItemAsStringAsync("AppCulture", selectedCulture);
+
+            var cultureInfo = new System.Globalization.CultureInfo(selectedCulture);
+            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
+            System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
+
+            // Close modal after changing the language
+            isModalVisible = false;
+
+            StateHasChanged();
+            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error changing culture: {ex.Message}");
+        }
+    }
+
+    private void ShowLanguageSelector()
+    {
+        isModalVisible = true;
+    }
+
+    private void CloseModal()
+    {
+        isModalVisible = false;
+    }
+
+    private void StopPropagation(EventArgs e)
+    {
+        // Prevent the modal from closing when clicking inside the modal content
+    }
+
+    // Get the flag URL based on the selected culture
+    private string GetFlagUrl(string culture)
+    {
+        return culture switch
+        {
+            "en-US" => "https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg",
+            "km-KH" => "https://upload.wikimedia.org/wikipedia/commons/8/83/Flag_of_Cambodia.svg",
+            _ => "https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg", // Default to US flag
+        };
+    }
+
+    // Get the language text based on the selected culture
+    private string GetLanguageText(string culture)
+    {
+        return culture switch
+        {
+            "en-US" => "English",
+            "km-KH" => "ខ្មែរ",
+            "zh-CN" => "中文",
+            _ => "English",
+        };
+    }
+}

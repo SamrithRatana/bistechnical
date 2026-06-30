@@ -1,0 +1,4213 @@
+﻿<style>
+
+    .form-item {
+        width: 100%; /* Full width for form items */
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(80%, 300px), 1fr));
+        gap: 1rem;
+    }
+
+    .camera-scanner-dialog .e-dlg-content {
+        padding: 20px;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+        color: white;
+    }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #004085;
+        }
+
+    @@keyframes pulse {
+        0%, 100%
+
+    {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    }
+
+    .pulse-animation {
+        animation: pulse 2s infinite;
+    }
+
+
+    #camera-preview {
+        /* transform: scaleX(-1); /* Mirror the camera */ 
+    }
+    /* Add to your CSS file */
+    #camera-preview-container {
+        position: relative;
+        width: 100%;
+        max-width: 640px;
+        height: 480px;
+        background: #000;
+        border-radius: 8px;
+        margin: 0 auto 15px;
+        overflow: hidden;
+    }
+
+        #camera-preview-container video,
+        #camera-preview-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    /* Scanning overlay guides */
+    .drawingBuffer {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    @@media (max-width: 768px) {
+        #camera-preview-container
+
+    {
+        height: 350px !important;
+        max-width: 100%;
+    }
+
+    }
+
+    #target {
+        background-color: transparent;
+        color: black;
+    }
+
+    .customtooltip.e-tooltip-wrap.e-popup {
+        background-color: #EDEFEE;
+        border: 2px solid #000;
+    }
+
+    .custom-table td:first-child {
+        white-space: nowrap;
+        width: 1%;
+        padding-right: 8px;
+        text-align: left;
+    }
+
+    .custom-table .field-label {
+        text-align: left;
+        white-space: nowrap;
+        position: relative;
+        padding-right: 20px;
+    }
+
+        .custom-table .field-label::after {
+            content: ":";
+            position: absolute;
+            right: 2px;
+        }
+
+    .button-checkbox-container {
+        display: flex;
+        align-items: center;
+    }
+
+    .small-circle-button {
+        padding: 0;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        width: 1px;
+        height: 80px;
+        line-height: 40px;
+        left: 0;
+        margin-right: 50px;
+    }
+
+    /* Styling for the tooltip content */
+    .tooltip-content {
+        display: flex;
+        justify-content: space-between; /* To place content and image side by side */
+        align-items: flex-start; /* Align content at the top */
+        overflow: hidden; /* Prevent overflow */
+        gap: 20px; /* Add space between the table and image */
+    }
+
+    .tooltip-image-container {
+        flex-shrink: 0; /* Prevent image from shrinking */
+        border: 2px solid #000; /* Rectangular border for the image container */
+        width: 90px; /* Fixed width for the image container */
+        height: 100px; /* Set height of the container */
+        overflow: hidden; /* Ensure no overflow in the container */
+    }
+
+    .tooltip-image {
+        width: 100%; /* Ensure the image fills the container */
+        height: 100%; /* Ensure the image fills the container */
+        object-fit: contain; /* Maintain aspect ratio */
+    }
+
+    .full-image {
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+    }
+
+    /* Ensure that the modal overlay takes up the full height of the screen */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        z-index: 1050;
+        background-color: rgba(0, 0, 0, 0.5); /* Background overlay */
+        align-items: center;
+        justify-content: center;
+        display: flex; /* This ensures the modal content is centered */
+        margin-left: 300px;
+    }
+
+    /* The modal dialog box */
+    .modal-dialog {
+        width: 80%; /* You can adjust this value based on your design */
+        max-width: 1500px; /* Optional: Maximum width of the modal */
+        height: auto;
+        margin: 0;
+    }
+
+    /* Modal content box */
+    .modal-content {
+        background-color: white;
+        border-radius: 5px;
+        padding: 20px;
+        overflow: hidden; /* Prevent overflow that causes scrollbars */
+    }
+
+    .report-container {
+        padding: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .report-header {
+        text-align: center;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #0078d4;
+    }
+
+        .report-header h3 {
+            color: #333;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0;
+        }
+
+    .report-body {
+        padding: 10px 0;
+    }
+
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .report-table td {
+            padding: 12px;
+            vertical-align: top;
+            font-size: 14px;
+            line-height: 1.6;
+            border: 1px solid #ddd;
+        }
+
+    .report-label {
+        width: 40%;
+        text-align: right;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .report-value {
+        width: 60%;
+        color: #555;
+    }
+
+    .sf-dialog-header {
+        background-color: #0078d4;
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        padding: 10px;
+        text-align: center;
+    }
+
+    .sf-dialog-content {
+        background-color: #f9f9f9;
+    }
+
+    .dialog-button {
+        text-align: center;
+    }
+
+    /* Styling for the "Close" button */
+    .sf-dialog-button {
+        padding: 10px 20px;
+        background-color: #0078d4;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+        .sf-dialog-button:hover {
+            background-color: #005a9c;
+        }
+
+    /* Add Item Service Button Styles */
+    .btn-icon {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        background-color: #f8f9fa;
+        color: #333;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+        .btn-icon:hover {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+        }
+
+    .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+        color: white;
+    }
+
+        .btn-success:hover {
+            background-color: #218838;
+            border-color: #1e7e34;
+        }
+
+    .form-container {
+        padding: 20px 0;
+    }
+
+    .dialog-header h3 {
+        margin: 0;
+        color: #333;
+        font-size: 18px;
+    }
+
+    .e-footer-content {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 10px 0;
+        border-top: 1px solid #dee2e6;
+    }
+
+    /* Custom dropdown styles */
+    .custom-dropdown {
+        font-family: 'Khmer OS';
+    }
+
+    .dropdown-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+    .readonly-input {
+        background-color: #f8f9fa !important;
+        color: #6c757d !important;
+    }
+
+    .dialog-header h3 {
+        margin: 0;
+        color: #333;
+        font-size: 18px;
+    }
+
+    .alert {
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid transparent;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+
+    .e-footer-content {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 10px 0;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .e-btn i {
+        margin-right: 5px;
+    }
+
+    .hidden-field {
+        display: none !important;
+    }
+
+    .invisible-field {
+        visibility: hidden !important;
+    }
+
+    .status-badge-select {
+        border: none;
+        border-radius: 20px;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        outline: none;
+        appearance: auto;
+    }
+
+    .badge-received {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+
+    .badge-inspecting {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .badge-default {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+</style>
+@page "/receive-item"
+@page "/receive-item/{ReportNo}"
+@using Microsoft.AspNetCore.SignalR.Client
+@using ServiceMaintenance.Pages.Reports
+@using ServiceMaintenance.Services
+@inject ReceiveItemService ReceiveItemService
+@inject RepairItemService RepairItemService
+@inject CustomerService CustomerService
+@inject ServiceSparePart SparePartService
+@inject InspectingService InspectingService
+
+@inject ThirdPartyRepairService ThirdPartyRepairService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject StateManagementAction StateManagementAction
+
+@inject IToastNotificationService ToastNotificationService
+@inject ItemService ItemService
+@inject JwtUserManagementService JwtUserManagementService
+@inject JwtSessionService JwtSessionService
+@inject GlobalUserService GlobalUserCache
+@inject CacheHelper Cache
+@inject MessageQueueHelper MQ
+@using System.Text.Json
+
+<DxToastProvider Name="Customization"
+                 MaxToastCount="5"
+                 HorizontalAlignment="HorizontalAlignment.Right"
+                 VerticalAlignment="VerticalEdge.Top"
+                 AnimationType="@Animation" />
+<DxToastProvider Name="Error"
+                 MaxToastCount="5"
+                 HorizontalAlignment="HorizontalAlignment.Right"
+                 VerticalAlignment="VerticalEdge.Top"
+                 AnimationType="@Animation" />
+
+    <div class="card shadow-sm rounded-lg">
+    <div class="card-body">
+        <DxToolbar ItemRenderStyleMode="ToolbarRenderStyleMode.Plain">
+
+            @if (CanCreate)
+            {
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextCreate)]"
+                               Click="NewRepairService_Click"
+                               IconCssClass="far fa-file"
+                               CssClass="toolbar-item" />
+            }
+
+            @if (CanEdit)
+            {
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextEdit)]"
+                               Click="EditRepairService_Click"
+                               IconCssClass="far fa-edit"
+                               CssClass="toolbar-item"
+                               Enabled="@isRow" />
+            }
+
+            @if (CanDelete)
+            {
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextDelete)]"
+                               Click="DeleteRepairService_Click"
+                               IconCssClass="fas fa-trash-alt"
+                               CssClass="toolbar-item"
+                               Enabled="@isRow" />
+            }
+
+            @if (CanExport)
+            {
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextExport)]" IconCssClass="fas fa-download">
+                    <Items>
+                        <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextToExcel)]"
+                                       Click="ExportToExcel"
+                                       IconCssClass="fas fa-file-excel" />
+
+                        <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextToPdf)]"
+                                       Click="ExportToPdf"
+                                       IconCssClass="fas fa-file-pdf" />
+                    </Items>
+                </DxToolbarItem>
+            }
+
+            @if (CanPrint)
+            {
+                <DxToolbarItem Text="Print Report"
+                               Click="() => ShowReportPreview(selectedRepairService)"
+                               CssClass="toolbar-item"
+                               IconCssClass="fas fa-print"
+                               Enabled="@isRow"
+                               Visible="false"/>
+            }
+            @if (CanView)
+            {
+
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextCheckList)]"
+                Click="Check_Click"
+                               CssClass="toolbar-item"
+                               IconCssClass="fas fa-check-circle" />
+            }
+
+        </DxToolbar>
+    </div>
+</div>
+
+<hr>
+<SfMediaQuery @bind-ActiveBreakPoint="activeBreakpoint"></SfMediaQuery>
+@{
+    bool enableAdaptiveUIMode = false;
+    RowDirection renderingMode = RowDirection.Vertical; // Default rendering mode
+
+    // Set properties based on the active breakpoint
+    if (activeBreakpoint == "Small")
+    {
+        enableAdaptiveUIMode = true;
+        renderingMode = RowDirection.Vertical; // Stack items vertically
+    }
+    else if (activeBreakpoint == "Medium")
+    {
+        enableAdaptiveUIMode = true; // Enable adaptive UI for medium screens
+        renderingMode = RowDirection.Horizontal; // Use horizontal layout
+    }
+    else
+    {
+        enableAdaptiveUIMode = false; // Disable adaptive UI for larger screens
+    }
+}
+@if (CanAccess)
+{
+@if (CanView)
+{
+     <div style="margin-bottom: 15px; padding: 15px; background-color: #f9f9f9; border-radius: 4px;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+
+            <SfTextBox @ref="ItemReceivedSearchBox"
+                       Placeholder="Search by Report No, Company, Serial Number..."
+                       ShowClearButton="true"
+                       Width="400px"
+                       @bind-Value="ItemReceivedSearchValue"
+                       Input="OnItemReceivedSearchInput">
+            </SfTextBox>
+
+            <SfButton Content="Search"
+                      CssClass="e-btn e-primary"
+                      IconCss="fas fa-search"
+                      OnClick="PerformItemReceivedSearch" />
+
+            <SfButton Content="Clear"
+                      CssClass="e-btn e-outline"
+                      IconCss="fas fa-times"
+                      OnClick="ClearItemReceivedSearch" />
+        </div>
+
+        @if (!string.IsNullOrEmpty(ItemReceivedSearchValue))
+        {
+            <div style="margin-top: 10px; color: #666; font-size: 14px;">
+                <i class="fas fa-info-circle"></i>
+                Searching for: <strong>@ItemReceivedSearchValue</strong>
+            </div>
+        }
+    </div>
+    <SfGrid @ref="MyGrid"
+            DataSource="@filteredRepairServices"
+            AllowPaging="true"
+            AllowSorting="true"
+            ShowColumnChooser="true"
+            AllowExcelExport="true"
+            AllowPdfExport="true"
+            AllowResizing="true"
+            AllowFiltering="true"
+            Height="450"
+            SelectionMode="GridSelectionMode.Single"
+            Toolbar=@ToolbarItems
+            EnableAdaptiveUI="@enableAdaptiveUIMode"
+            RowRenderingMode="@renderingMode"
+            AllowSelection="true">
+        <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+        <GridEvents TValue="RepairServices" RowSelected="RowSelectHandler" OnRecordDoubleClick="RowDoubleClickHandler"></GridEvents>
+
+        <GridPageSettings PageSize="10"></GridPageSettings>
+        <GridColumns>
+            <GridColumn Field="Id" HeaderText="Id" Width="150" Format="d" Visible="false" />
+            <GridColumn Field="reportNo" HeaderText="@Loc[nameof(ResourceStrings.Textref)]" Width="150" />
+            <GridColumn Field="ServiceDate" HeaderText="@Loc[nameof(ResourceStrings.TextReceiveDate)]" Width="150" Format="dd/MM/yyyy HH:mm tt" />
+            <GridColumn Field="CompanyName" HeaderText="@Loc[nameof(ResourceStrings.TextCompanyName)]" CustomAttributes="@(new Dictionary<string, object>() { { "class", "e-attr" } })" Width="200" />
+            <GridColumn Field="itemName" HeaderText="@Loc[nameof(ResourceStrings.TextItemName)]" Width="200" />
+            <GridColumn Field="serialNumber" HeaderText="@Loc[nameof(ResourceStrings.TextSerialNumber)]" Width="200" />
+            <GridColumn Field="CustomerRequest" HeaderText="@Loc[nameof(ResourceStrings.TextCustomerReq)]" Width="250" Visible="false" />
+            <GridColumn Field="ServiceLocation" HeaderText="@Loc[nameof(ResourceStrings.TextServiceLocation)]" Width="200" />
+                <GridColumn Field="Status" HeaderText="@Loc[nameof(ResourceStrings.TextStatus)]" Width="200">
+                    <Template>
+                        @{
+                            var item = context as RepairServices;
+                        }
+                        <select class="status-badge-select @GetStatusBadgeClass(item.Status)"
+                                value="@item.Status"
+                                @onchange="async (e) => await OnStatusBadgeChanged(item, e.Value?.ToString())">
+                            <option value="Item Recieved">បានទទួលម៉ាស៊ីន</option>
+                            <option value="Inspecting">បញ្ជូនទៅវិនិច្ឆ័យ</option>
+                        </select>
+                    </Template>
+                </GridColumn>
+
+                @* ✅ Add createby as its own regular (non-frozen) column *@
+                <GridColumn Field="createby" HeaderText="@Loc[nameof(ResourceStrings.TextCreateby)]" Width="150">
+                    <Template>
+                        @{
+                            var item = context as RepairServices;
+                        }
+                        @GetUserNameDisplay(item.createby)
+                    </Template>
+                </GridColumn>
+
+                @* ✅ Frozen column — buttons only, no createby *@
+                <GridColumn HeaderText="@Loc[nameof(ResourceStrings.TextAction)]" IsFrozen="true" Freeze="FreezeDirection.Right" Width="100">
+                    <Template>
+                        @{
+                            var item = context as RepairServices;
+                        }
+                        <div style="display: flex; align-items: center;">
+                            <DxButton IconCssClass="fas fa-eye"
+                                      CssClass="icon-button info"
+                                      RenderStyle="ButtonRenderStyle.Info"
+                                      RenderStyleMode="ButtonRenderStyleMode.Text"
+                                      Text="@Loc[nameof(ResourceStrings.TextView)]"
+                                      @onclick="() => ShowRepairServiceDetails(item)" />
+                        </div>
+                    </Template>
+                </GridColumn>
+        </GridColumns>
+    </SfGrid>
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-top: 1px solid #ddd; margin-top: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button class="e-btn e-normal" @onclick="FirstPage" disabled="@(currentPage == 1)">
+                <i class="fas fa-angle-double-left"></i> First
+            </button>
+            <button class="e-btn e-normal" @onclick="PreviousPage" disabled="@(currentPage == 1)">
+                <i class="fas fa-angle-left"></i> Previous
+            </button>
+
+            <span style="padding: 0 15px; font-weight: 500;">
+                Page @currentPage of @totalPages
+            </span>
+
+            <button class="e-btn e-normal" @onclick="NextPage" disabled="@(currentPage >= totalPages)">
+                Next <i class="fas fa-angle-right"></i>
+            </button>
+            <button class="e-btn e-normal" @onclick="LastPage" disabled="@(currentPage >= totalPages)">
+                Last <i class="fas fa-angle-double-right"></i>
+            </button>
+        </div>
+
+        <div style="color: #666;">
+            Showing @Math.Min((currentPage - 1) * pageSize + 1, totalItems) - @Math.Min(currentPage * pageSize, totalItems) of @totalItems items
+        </div>
+    </div>
+    }
+}
+
+
+
+
+
+
+
+
+<SfDialog @ref="DialogEdit" IsModal="true" Width="1200px" ShowCloseIcon="true" Visible="@isEditDialogVisible">
+    <DialogTemplates>
+        <Header>
+            <div class="dialog-header" style="position: relative;">
+                <h2>@pageTitle</h2>
+                <!-- Has Contract -->
+                <div class="form-item" style="display: flex; align-items: center;">
+                    <SfCheckBox Label="@Loc[nameof(ResourceStrings.TextContract)]" @bind-Checked=" receiveItem.HasContract" />
+                </div>
+                <div class="form-item" style="display: flex; align-items: center;">
+                    <SfCheckBox Label="@Loc[nameof(ResourceStrings.TesthasThirdParty)]" @bind-Checked="isThirdPartyService" />
+                </div>
+            </div>
+        </Header>
+    </DialogTemplates>
+    <EditForm Model="@receiveItem" OnValidSubmit="Save">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-grid">
+
+            <!-- Service Date -->
+            <div class="form-item" style="display: flex; flex-direction: column; align-items: flex-start;">
+                <SfDateTimePicker @bind-Value="receiveItem.ServiceDate"
+                                  Placeholder="@Loc[nameof(ResourceStrings.TextReceiveDate)]"
+                                  FloatLabelType="FloatLabelType.Always"
+                                  Format="dd/MM/yyyy hh:mm tt"
+                                  AllowEdit="true">
+                </SfDateTimePicker>
+
+            </div>
+            <div class="form-item" style="display: flex; flex-direction: column; align-items: flex-start; position: relative;">
+                <p style="margin: 0; padding: 0; font-size: 14px;">
+                    @Loc[nameof(ResourceStrings.TextCompanyName)]
+                </p>
+
+                <input type="text"
+                       @bind="searchTerm"
+                       @oninput="OnSearchTermInput"
+                       @onclick="OnInputClick"
+                       @onblur="OnReportInputBlur"
+                       placeholder="Type to search company (min 2 characters)..."
+                       class="form-control"
+                       style="height: 35px; font-size: 14px; margin-top: 2px; padding: 0 10px; font-family: 'Khmer OS'" />
+
+                @if (IsDropdownVisible && FilteredCustomers.Any())
+                {
+                    <div class="custom-dropdown"
+                         @onmousedown:preventDefault
+                         style="position: absolute; width: 100%; max-height: 300px; overflow-y: auto;
+                        border: 1px solid #ccc; background-color: white; z-index: 1000;
+                        margin-top: 55px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        font-family: 'Khmer OS'">
+
+                        <div style="display: flex; justify-content: space-between; align-items: center;
+                            padding: 10px 12px; background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;
+                            position: sticky; top: 0; z-index: 1;">
+                            <span style="font-size: 13px; color: #495057; font-weight: 500;">
+                                <i class="fas fa-building" style="margin-right: 5px;"></i>
+                                Found <strong>@FilteredCustomers.Count()</strong> companies
+                            </span>
+                            <button class="btn btn-sm btn-link p-0"
+                                    @onclick="CloseCustomerDropdown"
+                                    style="font-size: 18px; color: #dc3545; border: none; background: none;
+                                   font-weight: bold; line-height: 1; cursor: pointer;">
+                                ×
+                            </button>
+                        </div>
+
+                        @foreach (var company in FilteredCustomers)
+                        {
+                            <div class="dropdown-item"
+                                 @onclick="() => OnCompanySelect(company)"
+                                 style="cursor: pointer; border-bottom: 1px solid #f0f0f0; padding: 12px 15px;
+                                    transition: background-color 0.2s;">
+                                <div style="font-weight: 500; color: #212529; margin-bottom: 3px;">
+                                    @company.CompanyName
+                                </div>                              
+                            </div>
+                        }
+                    </div>
+                }
+                else if (!string.IsNullOrWhiteSpace(searchTerm) && searchTerm.Length >= 2 && !FilteredCustomers.Any())
+                {
+                    <div style="position: absolute; width: 100%; margin-top: 55px; padding: 15px;
+                        background-color: #fff3cd; border: 1px solid #ffc107;
+                        border-radius: 4px; color: #856404; font-size: 14px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
+                        No customers found matching "<strong>@searchTerm</strong>"
+                    </div>
+                }
+            </div>
+            <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+
+                <!-- Tooltip Section -->
+                <SfTooltip Target="#target" Position="Syncfusion.Blazor.Popups.Position.RightCenter" CssClass="customtooltip" CloseDelay="1000">
+                    <ContentTemplate>
+                        <div class="tooltip-content">
+                            <table class="table custom-table">
+                                <tr>
+                                    <td class="field-label">Address</td>
+                                    <td>@receiveItem.Address</td>
+                                </tr>
+                                <tr>
+                                    <td class="field-label">Contact Name</td>
+                                    <td>@receiveItem.ContactName</td>
+                                </tr>
+                                <tr>
+                                    <td class="field-label">Phone Number</td>
+                                    <td>@receiveItem.PhoneNumber</td>
+                                </tr>
+                                <tr>
+                                    <td class="field-label">Customer Name</td>
+                                    <td>@GetCustomerType(receiveItem.CompanyName)</td>
+                                </tr>
+                            </table>
+                            <div class="tooltip-image-container" @onclick="OpenFullImage">
+                                <img src="@GetImagePath(GetCustomerType(receiveItem.CompanyName))" class="tooltip-image" />
+                            </div>
+                        </div>
+                    </ContentTemplate>
+                    <ChildContent>
+                        <div class="form-item">
+                            <div class="button-checkbox-container">
+                                <SfButton ID="target" IconCss="fas fa-info-circle" CssClass="small-circle-button"></SfButton>
+                            </div>
+                        </div>
+                    </ChildContent>
+                </SfTooltip>
+                <!-- Modal for full image view -->
+                <SfDialog @ref="dialogView" IsModal="true" ShowCloseIcon="true" Width="500px" Height="600px" Visible="false" Target="body">
+                    <DialogTemplates>
+                        <Content>
+                            <img src="@_fullImagePath" class="full-image" />
+                        </Content>
+                    </DialogTemplates>
+                </SfDialog>
+                <div class="form-item" style="margin-bottom:30px;">
+                    <SfComboBox TValue="int"
+                                Placeholder="@Loc[nameof(ResourceStrings.TextPriority)]"
+                                FloatLabelType="FloatLabelType.Always"
+                                TItem="ServicePriority"
+                                @bind-Value="receiveItem.ServicePriorityId"
+                                DataSource="@_servicePriorities"
+                                Width="150px"
+                                EnablePersistence="false">
+                        <ComboBoxFieldSettings Value="Id" Text="Name"></ComboBoxFieldSettings>
+                    </SfComboBox>
+                </div>
+            </div>
+            <div class="form-item" style="margin-bottom:30px;">
+                <SfComboBox @ref="comboLocation" @onclick="OnComboBoxLocationClick" TValue="string" Placeholder="@Loc[nameof(ResourceStrings.TextServiceLocation)]" FloatLabelType="FloatLabelType.Always" TItem="Location"
+                            @bind-Value="receiveItem.ServiceLocation" DataSource="@Country" Width="380px">
+                    <ComboBoxFieldSettings Value="Name" Text="Name"></ComboBoxFieldSettings>
+                </SfComboBox>
+            </div>
+
+            <div class="form-item" style="display: flex; flex-direction: column; align-items: flex-start;">
+                <p style="margin: 0; padding: 0; font-size: 14px;">
+                    @Loc[nameof(ResourceStrings.TextselectItem)]
+                </p>
+
+               @if (isBarcodeMode)
+{
+    <!-- Barcode Mode -->
+    <input type="text"
+           @bind="searchItem"
+           placeholder="@Loc[nameof(ResourceStrings.TextSearchbyItemorserial)]"
+           class="form-control"
+           style="height: 35px; font-size: 14px; margin-top: 2px; padding: 0; font-family: 'Khmer OS';"
+           disabled />
+
+    <div style="display: flex; gap: 5px; width: 100%; margin-top: 5px;">
+        <input type="text"
+               @bind="barcodeScan"
+               @bind:event="oninput"
+               @onkeydown="OnBarcodeScanKeyDown"
+               @onblur="OnBarcodeInputBlur"
+               placeholder="@Loc[nameof(ResourceStrings.Textscanbar)]"
+               class="form-control"
+               style="height: 35px; font-size: 14px; padding: 0; font-family: 'Khmer OS'; flex: 1;" />
+
+        <!-- Camera Scan Button -->
+        <button type="button"
+                @onclick="OpenCameraScanner"
+                class="btn btn-icon btn-primary"
+                style="height: 35px; padding: 0 12px;"
+                title="Scan with Camera">
+            <i class="fas fa-camera"></i>
+        </button>
+    </div>
+}
+                else
+                {
+                    <!-- Manual Input -->
+                    <input type="text"
+                           @bind="searchItem"
+                           @oninput="OnSearchItemInput"
+                           @onclick="OnInputItemClick"
+                           @onblur="OnInputItemBlur"
+                           placeholder="@Loc[nameof(ResourceStrings.TextSearchbyItemorserial)]"
+                           class="form-control"
+                           style="height: 35px; font-size: 14px; margin-top: 2px; padding: 0; font-family: 'Khmer OS';" />
+                }
+
+                <!-- Buttons: Mode Toggle + Add Item -->
+                <div style="display: flex; align-items: center; gap: 5px; margin-top: 5px;">
+                    <button type="button" @onclick="ToggleInputMode" class="btn btn-icon">
+                        <i class="fas @buttonIcon"></i>
+                    </button>
+
+                    <button type="button" @onclick="ShowAddItemDialog" class="btn btn-icon btn-success">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+
+                <!-- Validation Message -->
+                @if (IsValidationErrorVisible)
+                {
+                    <span style="color: red; font-size: 14px; font-family: 'Khmer OS Battambang';">
+                        @ValidationMessage
+                    </span>
+                }
+
+                <!-- Dropdown List -->
+                @if (IsDropdownItemVisible && FilteredItems.Any())
+                {
+                    <div class="custom-dropdown"
+                         style="
+                    position: absolute;
+                    width: 380px;
+                    max-height: 250px;
+                    overflow-y: auto;
+                    border: 1px solid #ccc;
+                    background-color: white;
+                    z-index: 1000;
+                    margin-top: 55px;
+                    font-family: 'Khmer OS';">
+
+                        @foreach (var item in FilteredItems)
+                        {
+                            <div class="dropdown-item"
+                                 @onclick="() => OnItemSelect(item)">
+                                @item.ItemName | @item.SerialNumber
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <SfDialog @ref="DialogCameraScanner"
+                      IsModal="true"
+                      Width="90%"
+                      Height="90vh"
+                      ShowCloseIcon="true"
+                      Visible="@isCameraScannerVisible"
+                      CssClass="camera-scanner-dialog"
+                      CloseOnEscape="true">
+
+                <DialogEvents Closed="OnCameraScannerClosed"></DialogEvents>
+
+                <DialogTemplates>
+                    <Header>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0;">
+                                <i class="fas fa-barcode"></i> Scan Barcode
+                            </h3>
+
+                            @if (isScanning)
+                            {
+                                <span style="color: #28a745;">
+                                    <i class="fas fa-circle" style="animation: pulse 1s infinite;"></i>
+                                    Scanning...
+                                </span>
+                            }
+                        </div>
+                    </Header>
+
+                    <Content>
+                        <div style="display: flex; flex-direction: column; align-items: center; height: 100%;">
+
+                            <!-- Camera Preview -->
+                            <div id="camera-preview-container"
+                                 style="
+                        width: 100%;
+                        max-width: 640px;
+                        height: 480px;
+                        background: #000;
+                        border-radius: 8px;
+                        margin-bottom: 15px;
+                        position: relative;
+                        overflow: hidden;">
+
+                                <video id="camera-preview"
+                                       autoplay
+                                       playsinline
+                                       style="width: 100%; height: 100%; object-fit: cover;">
+                                </video>
+
+                                <!-- Scan Overlay -->
+                                <div style="
+                        position: absolute; inset: 0;
+                        border: 2px solid #28a745;
+                        pointer-events: none;
+                        box-shadow: inset 0 0 0 2000px rgba(0,0,0,0.3);">
+
+                                    <div style="
+                            position: absolute;
+                            top: 50%; left: 50%;
+                            transform: translate(-50%, -50%);
+                            width: 80%; height: 60%;
+                            border: 2px solid #28a745;
+                            border-radius: 8px;">
+
+                                        <div style="position: absolute; top: -2px; left: -2px; width: 20px; height: 20px; border-top: 4px solid #28a745; border-left: 4px solid #28a745;"></div>
+                                        <div style="position: absolute; top: -2px; right: -2px; width: 20px; height: 20px; border-top: 4px solid #28a745; border-right: 4px solid #28a745;"></div>
+                                        <div style="position: absolute; bottom: -2px; left: -2px; width: 20px; height: 20px; border-bottom: 4px solid #28a745; border-left: 4px solid #28a745;"></div>
+                                        <div style="position: absolute; bottom: -2px; right: -2px; width: 20px; height: 20px; border-bottom: 4px solid #28a745; border-right: 4px solid #28a745;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Scanned Result -->
+                            @if (!string.IsNullOrEmpty(scannedBarcode))
+                            {
+                                <div style="
+                            width: 100%; max-width: 640px;
+                            padding: 15px;
+                            background: #d4edda;
+                            border: 1px solid #c3e6cb;
+                            border-radius: 8px;
+                            margin-bottom: 15px;">
+
+                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                        <div>
+                                            <strong style="color: #155724;">
+                                                <i class="fas fa-check-circle"></i> Scanned:
+                                            </strong>
+
+                                            <span style="
+                                        font-size: 18px;
+                                        margin-left: 10px;
+                                        font-family: monospace;">
+                                                @scannedBarcode
+                                            </span>
+                                        </div>
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-success"
+                                                @onclick="UseScannedBarcode">
+                                            <i class="fas fa-check"></i> Use This
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- Instructions -->
+                            <div style="text-align: center; color: #666; max-width: 500px;">
+                                <p style="margin-bottom: 10px;">
+                                    <i class="fas fa-info-circle"></i>
+                                    Position the barcode within the green frame
+                                </p>
+                                <p style="font-size: 14px;">
+                                    The scanner will automatically detect and read the barcode
+                                </p>
+                            </div>
+                        </div>
+                    </Content>
+                </DialogTemplates>
+
+                <DialogButtons>
+                    <DialogButton Content="Close"
+                                  CssClass="e-btn e-normal"
+                                  OnClick="CloseCameraScanner" />
+                </DialogButtons>
+            </SfDialog>
+
+
+
+            <!-- Customer Request -->
+            <div class="form-item" style="display: flex; flex-direction: column; align-items: flex-start;">
+                <SfTextBox class="form-control e-attr" @bind-Value=" receiveItem.CustomerRequest" Placeholder="@Loc[nameof(ResourceStrings.TextCustomerReqInput)]" FloatLabelType="FloatLabelType.Always" Multiline="true" />
+            </div>
+
+        </div>
+        <div class="e-footer-content">
+            <button type="submit"
+                    class="e-btn e-normal e-primary"
+                    disabled="@(IsSaving || IsLoading)">
+                @if (IsSaving || IsLoading)
+                {
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span style="margin-left: 8px;">Saving...</span>
+                }
+                else
+                {
+                    <i class="fas fa-save"></i>
+                    <span style="margin-left: 8px;">@Loc[nameof(ResourceStrings.TextSave)]</span>
+                }
+            </button>
+
+            <button type="button"
+                    class="e-btn e-normal"
+                    @onclick="CancelEditDialog"
+                    disabled="@(IsSaving || IsLoading)">
+                @if (IsSaving || IsLoading)
+                {
+                    <i class="fas fa-clock"></i>
+                    <span style="margin-left: 8px;">Please wait...</span>
+                }
+                else
+                {
+                    <i class="fas fa-times"></i>
+                    <span style="margin-left: 8px;">@Loc[nameof(ResourceStrings.TextDecline)]</span>
+                }
+            </button>
+        </div>
+    </EditForm>
+</SfDialog>
+
+<!-- Add Item Service Dialog -->
+<SfDialog @ref="DialogAddItem" IsModal="true" Width="500px" ShowCloseIcon="true" Visible="@isAddItemDialogVisible">
+    <DialogTemplates>
+        <Header>
+            <div class="dialog-header">
+                <h3>@(isUpdateMode ? $"Update Item: {selectedSerialForUpdate}" : "Add New Item Service")</h3>
+                @if (isUpdateMode)
+                {
+                    <p style="color: #28a745; font-size: 14px; margin: 5px 0 0 0;">
+                        <i class="fas fa-info-circle"></i> serial number: @selectedSerialForUpdate
+                    </p>
+                }
+            </div>
+        </Header>
+    </DialogTemplates>
+    <EditForm Model="@newItemService" OnValidSubmit="SaveNewItemService">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-container">
+
+            <!-- Serial Number Input/Display -->
+            <div class="form-item" style="margin-bottom: 20px;">
+                @if (isUpdateMode)
+                {
+                    <!-- Read-only serial number for update mode -->
+                    <SfTextBox @bind-Value="newItemService.SerialNumber"
+                               Placeholder="Serial Number"
+                               FloatLabelType="FloatLabelType.Always"
+                               Width="100%"
+                               Readonly="true"
+                               CssClass="readonly-input" />
+                               <hr />
+                    <small style="color: #28a745; font-size: 15px; font-family: 'Khmer OS Battambang';">
+                        <i class="fas fa-info-circle"></i> សូមបញ្ជាក់លេខកូដខាងលើជា SerialNumber ម៉ាស៊ីនរបស់អ្នក
+                    </small>
+                }
+                else
+                {
+                    <!-- Editable serial number for create mode -->
+                    <SfTextBox @bind-Value="newItemService.SerialNumber"
+                               Placeholder="Serial Number (leave empty to auto-generate)"
+                               FloatLabelType="FloatLabelType.Always"
+                               Width="100%" />
+                    <small style="color: #6c757d;">Leave empty to auto-generate a random serial number</small>
+                }
+            </div>
+
+            <!-- Item Name Selection/Input with Add Button -->
+            <div class="form-item" style="margin-bottom: 20px;">
+                <div style="display: flex; align-items: flex-end; gap: 10px;">
+                    <div style="flex: 1;">
+                        <SfComboBox @ref="comboBoxITem"
+                                    @onclick="OnComboBoxClick2"
+                                    TValue="string"
+                                    TItem="Repairs"
+                                    Placeholder="Select or Enter Item Name"
+                                    FloatLabelType="FloatLabelType.Always"
+                                    FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                    AllowFiltering="true"
+                                    @bind-Value="newItemService.ItemName"
+                                    DataSource="@uniqueItems"
+                                    Width="100%"
+                                    AllowCustom="true">
+                            <ComboBoxFieldSettings Value="ItemName" Text="ItemName"></ComboBoxFieldSettings>
+                        </SfComboBox>
+                    </div>
+                    <button type="button" @onclick="ShowCreateNewItemDialog" class="btn btn-icon btn-success"
+                            style="height: 35px; margin-bottom: 2px;" title="Add New Item Type">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                @if (isUpdateMode)
+                {
+                    <small style="color: #28a745;font-family: 'Khmer OS Battambang'; font-size:14px">
+                        <i class="fas fa-edit"></i> លោកអ្នកអាចផ្លាស់ប្ដូរឈ្មោះម៉ាស៊ីនសម្រាប់ SerialNumber មួយនេះបាន
+                    </small>
+                }
+            </div>
+
+            <!-- Additional textbox for storing serial number from selected item -->
+            @{
+                string selectedSerialNumber = GetSelectedItemSerialNumber();
+            }
+            @if (!string.IsNullOrEmpty(selectedSerialNumber))
+            {
+                <div class="form-item" style="margin-bottom: 20px;">
+                    <SfTextBox Value="@selectedSerialNumber"
+                               Placeholder="Selected Item Serial Number"
+                               FloatLabelType="FloatLabelType.Always"
+                               Width="100%"
+                               Readonly="true"
+                               CssClass="readonly-input" />
+                    <small style="color: #007bff;">
+                        <i class="fas fa-info-circle"></i> Serial number from selected item
+                    </small>
+                </div>
+            }
+
+            <!-- Item Type (mostly for display) -->
+            @if (isUpdateMode)
+            {
+                <div class="form-item" style="margin-bottom: 20px;">
+                    <SfTextBox @bind-Value="newItemService.ItemType"
+                               Placeholder="Item Type"
+                               FloatLabelType="FloatLabelType.Always"
+                               Width="100%"
+                               Readonly="true"
+                               CssClass="readonly-input" />
+                    <small style="color: #6c757d;">Item type cannot be changed when updating</small>
+                </div>
+            }
+
+            <!-- Validation Message Display -->
+            @if (IsValidationErrorVisible)
+            {
+                <div class="alert alert-danger" style="margin-bottom: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i> @ValidationMessage
+                </div>
+            }
+        </div>
+
+        <div class="e-footer-content" style="margin-top: 20px;">
+            <button type="submit" class="e-btn e-normal e-primary">
+                <i class="fas @(isUpdateMode ? "fa-save" : "fa-plus")"></i> @(isUpdateMode ? "Update" : "Save")
+            </button>
+            <button type="button" class="e-btn e-normal" @onclick="CancelAddItemDialog">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </EditForm>
+</SfDialog>
+
+<!-- Create New Item Dialog -->
+<SfDialog @ref="DialogCreateNewItem" IsModal="true" Width="400px" ShowCloseIcon="true" Visible="@isCreateNewItemDialogVisible">
+    <DialogTemplates>
+        <Header>
+            <div class="dialog-header">
+                <h3>Create New Item Type</h3>
+                <p style="color: #007bff; font-size: 14px; margin: 5px 0 0 0;">
+                    <i class="fas fa-info-circle"></i> Add a new item type to the system
+                </p>
+            </div>
+        </Header>
+    </DialogTemplates>
+    <EditForm Model="@newItemType" OnValidSubmit="SaveNewItemType">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-container">
+
+            <!-- Item Name Input -->
+            <div class="form-item" style="margin-bottom: 20px;">
+                <SfTextBox @bind-Value="newItemType.ItemName"
+                           Placeholder="Item Name"
+                           FloatLabelType="FloatLabelType.Always"
+                           Width="100%" />
+                <small style="color: #6c757d;">Enter the name of the new item type</small>
+            </div>
+
+
+
+            <!-- Item Type (Hidden/Read-only, always 'Generate') -->
+            <div class="form-item" style="margin-bottom: 20px;">
+                <SfTextBox @bind-Value="newItemType.ItemType"
+                           Placeholder="Item Type"
+                           FloatLabelType="FloatLabelType.Always"
+                           Width="100%"
+                           Readonly="true"
+                           CssClass="readonly-input" />
+                <small style="color: #6c757d;">Item type is automatically set to 'Generate'</small>
+            </div>
+
+            <!-- Validation Message Display -->
+            @if (IsCreateNewItemValidationErrorVisible)
+            {
+                <div class="alert alert-danger" style="margin-bottom: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i> @CreateNewItemValidationMessage
+                </div>
+            }
+        </div>
+
+        <div class="e-footer-content" style="margin-top: 20px;">
+            <button type="submit" class="e-btn e-normal e-primary">
+                <i class="fas fa-plus"></i> Create Item
+            </button>
+            <button type="button" class="e-btn e-normal" @onclick="CancelCreateNewItemDialog">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </EditForm>
+</SfDialog>
+
+<!-- Create New Item Dialog -->
+<SfDialog @ref="DialogCreateNewItem" IsModal="true" Width="400px" ShowCloseIcon="true" Visible="@isCreateNewItemDialogVisible">
+    <DialogTemplates>
+        <Header>
+            <div class="dialog-header">
+                <h3>Create New Item Type</h3>
+                <p style="color: #007bff; font-size: 14px; margin: 5px 0 0 0;">
+                    <i class="fas fa-info-circle"></i> Add a new item type to the system
+                </p>
+            </div>
+        </Header>
+    </DialogTemplates>
+    <EditForm Model="@newItemType" OnValidSubmit="SaveNewItemType">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-container">
+
+            <!-- Item Name Input -->
+            <div class="form-item" style="margin-bottom: 20px;">
+                <SfTextBox @bind-Value="newItemType.ItemName"
+                           Placeholder="Item Name"
+                           FloatLabelType="FloatLabelType.Always"
+                           Width="100%" />
+                <div class="text-danger mt-1" style="font-size: 16px;font-family:'Khmer OS Battambang'">
+                    សូមស្វែងរកក្នុង Website ជាឈ្មោះស្តង់ដាររបស់ម៉ាស៊ីន ជាឈ្មោះពេញ និង Brand ត្រូវតែអក្សរធំ
+                </div>
+            </div>
+
+            <!-- Serial Number Input - Hidden -->
+            <div class="form-item hidden-field" style="margin-bottom: 20px;">
+                <SfTextBox @bind-Value="newItemType.SerialNumber"
+                           Placeholder="Serial Number (leave empty to auto-generate)"
+                           FloatLabelType="FloatLabelType.Always"
+                           Width="100%" />
+                <small style="color: #6c757d;">Leave empty to auto-generate a random serial number</small>
+            </div>
+
+            <!-- Item Type - Hidden -->
+            <div class="form-item hidden-field" style="margin-bottom: 20px;">
+                <SfTextBox @bind-Value="newItemType.ItemType"
+                           Placeholder="Item Type"
+                           FloatLabelType="FloatLabelType.Always"
+                           Width="100%"
+                           Readonly="true"
+                           CssClass="readonly-input" />
+                <small style="color: #6c757d;">Item type is automatically set to 'Generate'</small>
+            </div>
+            <!-- Validation Message Display -->
+            @if (IsCreateNewItemValidationErrorVisible)
+            {
+                <div class="alert alert-danger" style="margin-bottom: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i> @CreateNewItemValidationMessage
+                </div>
+            }
+        </div>
+
+        <div class="e-footer-content" style="margin-top: 20px;">
+            <button type="submit" class="e-btn e-normal e-primary">
+                <i class="fas fa-plus"></i> Create Item
+            </button>
+            <button type="button" class="e-btn e-normal" @onclick="CancelCreateNewItemDialog">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </EditForm>
+</SfDialog>
+<!-- Delete Confirmation Dialog -->
+<SfDialog @ref="DialogDelete"
+          IsModal="true"
+          Width="400px"
+          ShowCloseIcon="true"
+          Visible="@isDeleteDialogVisible">
+    <DialogTemplates>
+        <Header>
+            <div class="dialog-header">
+                <h3><i class="fas fa-exclamation-triangle" style="color: #dc3545;"></i> Confirm Delete</h3>
+            </div>
+        </Header>
+        <Content>
+            <div style="padding: 20px;">
+                <p style="font-size: 16px; margin-bottom: 15px;">
+                    Are you sure you want to delete this service?
+                </p>
+                @if (selectedRepairService != null)
+                {
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px;">
+                        <p><strong>Report No:</strong> @selectedRepairService.reportNo</p>
+                        <p><strong>Company:</strong> @selectedRepairService.CompanyName</p>
+                        <p><strong>Item:</strong> @selectedRepairService.itemName</p>
+                        <p><strong>Serial Number:</strong> @selectedRepairService.serialNumber</p>
+                    </div>
+                }
+                <div class="alert alert-danger" style="margin-top: 15px;">
+                    <i class="fas fa-exclamation-circle"></i> This action cannot be undone.
+                </div>
+            </div>
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Delete"
+                      CssClass="e-btn e-danger"
+                      OnClick="ConfirmDelete"
+                      Disabled="@(IsSaving || IsLoading)">
+        </DialogButton>
+        <DialogButton Content="Cancel"
+                      CssClass="e-btn e-normal"
+                      OnClick="@(() => isDeleteDialogVisible = false)">
+        </DialogButton>
+    </DialogButtons>
+</SfDialog>
+<SfDialog @ref="DialogEdit" Target="#target" Width="600px" IsModal="true" ShowCloseIcon="true" @bind-Visible="@isViewDialogVisible">
+    <DialogEvents OnOverlayModalClick="@OverlayClick"></DialogEvents>
+    <DialogTemplates>
+        <Header>@Loc[nameof(ResourceStrings.TextViewInfo)]</Header>
+        <Content>
+            <div class="report-container">
+                <div class="report-header">
+                    <h3>@Loc[nameof(ResourceStrings.TextReceviceDetail)]</h3>
+                    <p><strong>@Loc[nameof(ResourceStrings.Textref)]:</strong> @selectedRepairService?.reportNo</p>
+                </div>
+                <div class="report-body">
+                    <table class="report-table">
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextReceiveDate)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.ServiceDate.ToString("dd/MM/yyyy HH:mm tt")</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextCompanyName)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.CompanyName</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextAddress)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.Address</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextContactName)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.ContactName</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextPhoneNumber)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.PhoneNumber</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextItemName)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.itemName</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextSerialNumber)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.serialNumber</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextCustomerReq)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.CustomerRequest</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextContract)]:</strong></td>
+                            <td class="report-value">@(@selectedRepairService?.hasContract == true ? "Yes" : "No")</td>
+                        </tr>
+
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextPriority)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.ServicePriority</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextActivities)]:</strong></td>
+                            <td class="report-value">@selectedRepairService?.Status</td>
+                        </tr>
+                        <tr>
+                          <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextCreateby)]:</strong></td>
+                        <td class="report-value">
+                            @GetUserNameDisplay(selectedRepairService?.createby)
+                        </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Close" IsPrimary="true" OnClick="@CloseDialog" />
+    </DialogButtons>
+</SfDialog>
+
+@if (IsLoading)
+{
+    <p>Submitting...</p>
+}
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="alert alert-danger">@ErrorMessage</div>
+}
+@code {
+    [Parameter] public string ReportNo { get; set; }
+    private bool isEditMode = false;
+    private Guid editingServiceId = Guid.Empty;
+    private SfDialog DialogDelete;
+    private bool isDeleteDialogVisible = false;
+    private ReceiveItemRequest receiveItem = new ReceiveItemRequest();
+    private SfComboBox<Guid, Repairs> comboObj;
+    private SfComboBox<string, Location> comboLocation;
+    private SfComboBox<string, Repairs> comboBoxITem;
+    private SfTextBox ItemReceivedSearchBox;
+    private string ItemReceivedSearchValue { get; set; }
+    private System.Threading.Timer _itemReceivedSearchDebounceTimer;
+    private SfGrid<RepairServices> MyGrid;
+    private bool isEditDialogVisible = false;
+    private bool isViewDialogVisible = false;
+    private bool IsSaving = false;
+    public string[] ToolbarItems = new string[] { "ColumnChooser", "Search" };
+    private bool IsLoading = false;
+    private string ErrorMessage;
+    private string activeBreakpoint { get; set; }
+    ToastAnimationType Animation { get; set; } = ToastAnimationType.Slide;
+    private string pageTitle = "Edit Repair Service";
+    private SfDialog DialogEdit;
+    private bool IsDropdownVisible { get; set; } = false;
+    private bool IsDropdownItemVisible { get; set; } = false;
+    private string searchTerm = string.Empty;
+    private string searchItem = string.Empty;
+    private bool IsValidationErrorVisible { get; set; }
+    private string ValidationMessage { get; set; } = string.Empty;
+    private IEnumerable<Customer> _customers = new List<Customer>();
+    private System.Threading.Timer _customerSearchDebounceTimer;
+    private string selectedCompanyName = string.Empty;
+    private string selectedItem = string.Empty;
+    private Dictionary<string, string> _allUsers = new Dictionary<string, string>();
+    private bool _usersLoaded = false;
+
+    // ✅ NEW: Client-side caching for dropdown data
+    private static List<Customer> _cachedCustomers = null;
+    private static DateTime _customerCacheTime = DateTime.MinValue;
+    private static List<Repairs> _cachedItems = null;
+    private static DateTime _itemsCacheTime = DateTime.MinValue;
+    private const int CACHE_DURATION_MINUTES = 5;
+
+    private string _barcodeScan;
+    private string barcodeScan
+    {
+        get => _barcodeScan;
+        set
+        {
+            _barcodeScan = value;
+            OnBarcodeScanChanged(value);
+        }
+    }
+    private IEnumerable<SparePartObject> _spareParts = Enumerable.Empty<SparePartObject>();
+    private HubConnection hubConnection;
+    private IEnumerable<RepairServices> filteredRepairServices;
+    private IEnumerable<Repairs> _repairItems = new List<Repairs>();
+    private IEnumerable<ServicePriority> _servicePriorities;
+    private IEnumerable<ServiceStatus> _serviceStatuses;
+    private RepairServices selectedRepairService;
+    private string ReportNoFromRoute;
+    private bool isRow = false;
+    private bool isBarcodeMode = true;
+    private string buttonIcon => isBarcodeMode ? "fa-keyboard" : "fa-barcode";
+    private bool isThirdPartyService = false;
+    private SfDialog DialogCreateNewItem;
+    private bool isCreateNewItemDialogVisible = false;
+    private Repairs newItemType = new Repairs();
+    private bool IsCreateNewItemValidationErrorVisible { get; set; }
+    private string CreateNewItemValidationMessage { get; set; } = string.Empty;
+    private SfDialog DialogAddItem;
+    private bool isAddItemDialogVisible = false;
+    private Repairs newItemService = new Repairs();
+    private IEnumerable<Repairs> uniqueItems = new List<Repairs>();
+    private IEnumerable<Repairs> allExistingItems = new List<Repairs>();
+    private bool isUpdateMode = false;
+    private string selectedSerialForUpdate = string.Empty;
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 0;
+    private int totalItems = 0;
+    private SfDialog DialogCameraScanner;
+    private bool isCameraScannerVisible = false;
+    private bool isScanning = false;
+    private string scannedBarcode = string.Empty;
+    private DotNetObjectReference<ReceiveItemList> objRef;
+
+    private void ToggleInputMode()
+    {
+        isBarcodeMode = !isBarcodeMode;
+    }
+
+    public class Location
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+    }
+
+    List<Location> Country = new List<Location>
+    {
+        new Location() { Name = "OnSite" },
+        new Location() { Name = "CompanyService"},
+    };
+
+    // ✅ PRIORITY 2: Cached customer loading
+    private async Task<List<Customer>> GetCustomersWithCache()
+    {
+        if (_cachedCustomers != null &&
+            DateTime.UtcNow - _customerCacheTime < TimeSpan.FromMinutes(CACHE_DURATION_MINUTES))
+        {
+            Console.WriteLine("✅ Using cached customers");
+            return _cachedCustomers;
+        }
+
+        Console.WriteLine("📥 Loading fresh customer data...");
+        try
+        {
+            var result = await CustomerService.GetCustomersPaginatedAsync(1, 50);
+            _cachedCustomers = result.Data?.ToList() ?? new List<Customer>();
+            _customerCacheTime = DateTime.UtcNow;
+            Console.WriteLine($"✅ Cached {_cachedCustomers.Count} customers");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading customers: {ex.Message}");
+            _cachedCustomers = new List<Customer>();
+        }
+
+        return _cachedCustomers;
+    }
+
+    // ✅ PRIORITY 2: Cached items loading
+    private async Task<List<Repairs>> GetItemsWithCache()
+    {
+        if (_cachedItems != null &&
+            DateTime.UtcNow - _itemsCacheTime < TimeSpan.FromMinutes(CACHE_DURATION_MINUTES))
+        {
+            Console.WriteLine("✅ Using cached items");
+            return _cachedItems;
+        }
+
+        Console.WriteLine("📥 Loading fresh items data...");
+        try
+        {
+            var result = await ItemService.GetItemsPagedAsync(1, 50);
+            _cachedItems = result.Items?.ToList() ?? new List<Repairs>();
+            _itemsCacheTime = DateTime.UtcNow;
+            Console.WriteLine($"✅ Cached {_cachedItems.Count} items");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading items: {ex.Message}");
+            _cachedItems = new List<Repairs>();
+        }
+
+        return _cachedItems;
+    }
+
+    // ✅ PRIORITY 1: COMPLETELY REWRITTEN - TRUE PARALLEL LOADING
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        try
+        {
+            Console.WriteLine("🚀 Starting optimized parallel initialization...");
+            var totalStartTime = DateTime.UtcNow;
+
+            // ✅ Start all tasks immediately (parallel execution begins)
+            var prioritiesTask = LoadServicePriorities();
+            var usersTask = LoadAllUsersAsync();
+            var sparePartsTask = LoadSpareParts();
+            var customersTask = GetCustomersWithCache();
+            var itemsTask = GetItemsWithCache();
+            var statusesTask = LoadServiceStatuses();
+
+            // ✅ Wait for all tasks to complete
+            await Task.WhenAll(
+                prioritiesTask,
+                usersTask,
+                sparePartsTask,
+                customersTask,
+                itemsTask,
+                statusesTask
+            );
+
+            // ✅ Get results (instant - tasks already completed)
+            _servicePriorities = await prioritiesTask;
+            _allUsers = await usersTask;
+            _spareParts = await sparePartsTask;
+            _customers = await customersTask;
+            _repairItems = await itemsTask;
+            allExistingItems = _repairItems;
+            _serviceStatuses = await statusesTask;
+            _usersLoaded = true;
+
+            var refDataTime = (DateTime.UtcNow - totalStartTime).TotalMilliseconds;
+            Console.WriteLine($"✅ Reference data loaded in {refDataTime}ms");
+
+            // ✅ Load page data
+            var pageLoadStart = DateTime.UtcNow;
+            await LoadPageData();
+            var pageDataTime = (DateTime.UtcNow - pageLoadStart).TotalMilliseconds;
+            Console.WriteLine($"✅ Page data loaded in {pageDataTime}ms");
+
+            var totalTime = (DateTime.UtcNow - totalStartTime).TotalMilliseconds;
+            Console.WriteLine($"✅ ALL DATA LOADED IN {totalTime}ms");
+
+            // ✅ Handle route parameter
+            var routeData = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Split('/');
+            ReportNoFromRoute = routeData.Length > 1 ? routeData[1] : null;
+
+            if (!string.IsNullOrEmpty(ReportNoFromRoute))
+            {
+                await PerformItemReceivedSearchInternal(ReportNoFromRoute);
+            }
+
+            // ✅ Initialize SignalR in background (fire-and-forget)
+            _ = InitializeSignalRAsync();
+
+            Console.WriteLine($"✅ Initialization complete: {totalTime}ms");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error during initialization: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            ErrorMessage = $"Failed to load data: {ex.Message}";
+            StateHasChanged(); // Update UI to show error
+        }
+    }
+
+    // ✅ Helper method for parallel loading
+    private async Task<List<ServicePriority>> LoadServicePriorities()
+    {
+        try
+        {
+            var result = await RepairItemService.GetServicePrioritiesAsync();
+            var priorities = result?.ToList() ?? new List<ServicePriority>();
+            Console.WriteLine($"✅ Loaded {priorities.Count} priorities");
+            return priorities;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading priorities: {ex.Message}");
+            return new List<ServicePriority>();
+        }
+    }
+
+    private async Task<List<SparePartObject>> LoadSpareParts()
+    {
+        try
+        {
+            var result = await SparePartService.GetSparePartsPagedAsync(1, 10);
+            var parts = result.Items?.ToList() ?? new List<SparePartObject>();
+            Console.WriteLine($"✅ Loaded {parts.Count} spare parts");
+            return parts;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading spare parts: {ex.Message}");
+            return new List<SparePartObject>();
+        }
+    }
+
+    private async Task<List<ServiceStatus>> LoadServiceStatuses()
+    {
+        try
+        {
+            var result = await RepairItemService.GetServiceStatusesAsync();
+            var statuses = result?.ToList() ?? new List<ServiceStatus>();
+            Console.WriteLine($"✅ Loaded {statuses.Count} statuses");
+            return statuses;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading statuses: {ex.Message}");
+            return new List<ServiceStatus>();
+        }
+    }
+
+    private async Task<Dictionary<string, string>> LoadAllUsersAsync()
+    {
+        try
+        {
+            Console.WriteLine("📥 Loading users...");
+            var users = await GlobalUserCache.GetUsersAsync();
+            Console.WriteLine($"✅ Loaded {users.Count} users");
+            return users;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading users: {ex.Message}");
+            return new Dictionary<string, string>();
+        }
+    }
+
+    // ✅ Non-blocking SignalR initialization
+    private async Task InitializeSignalRAsync()
+    {
+        try
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/itemHub"))
+                .Build();
+
+            hubConnection.On<string>("ReceiveItemUpdate", async (message) =>
+            {
+                // ✅ Invalidate Cache → Reload ថ្មី
+                await Cache.InvalidateManyAsync(
+                    CacheKeys.ReceiveItem(currentPage, pageSize),
+                    CacheKeys.DashboardStats
+                );
+                await LoadPageData();
+                await InvokeAsync(StateHasChanged);
+            });
+
+            hubConnection.On<Guid>("BroadcastItemDelete", async (deletedItemId) =>
+            {
+                await Cache.InvalidateManyAsync(
+                    CacheKeys.ReceiveItem(currentPage, pageSize)
+                );
+                filteredRepairServices = filteredRepairServices
+                    .Where(item => item.Id != deletedItemId)
+                    .ToList();
+                await InvokeAsync(StateHasChanged);
+            });
+
+            await hubConnection.StartAsync();
+            Console.WriteLine("✅ SignalR connected");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ SignalR failed: {ex.Message}");
+        }
+    }
+
+    private async void OnBarcodeScanChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            IsDropdownItemVisible = false;
+            IsValidationErrorVisible = false;
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            var searchResult = await ItemService.SearchItemsAsync(
+                pageNumber: 1,
+                pageSize: 20,
+                searchTerm: value
+            );
+
+            _repairItems = searchResult.Items;
+
+            var matchingItems = _repairItems.Where(item =>
+                item.SerialNumber.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                item.ItemName.Contains(value, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+
+            if (matchingItems.Any())
+            {
+                IsDropdownItemVisible = true;
+                IsValidationErrorVisible = false;
+
+                var exactMatch = matchingItems.FirstOrDefault(item =>
+                    item.SerialNumber.Equals(value, StringComparison.OrdinalIgnoreCase)
+                );
+
+                if (exactMatch != null)
+                {
+                    searchItem = $"{exactMatch.ItemName}";
+                    selectedItem = exactMatch.SerialNumber;
+                    _selectedItem = exactMatch;
+                    receiveItem.ItemId = exactMatch.Id;
+                }
+            }
+            else
+            {
+                IsDropdownItemVisible = false;
+                IsValidationErrorVisible = true;
+                ValidationMessage = "លេខម៉ាស៊ីននេះមិនទាន់មានទេ សូមបញ្ចូលម៉ាស៊ីនថ្មីជាមុនសិន!";
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching items: {ex.Message}");
+        }
+    }
+
+    private IEnumerable<Customer> FilteredCustomers => _customers;
+
+    private IEnumerable<Repairs> FilteredItems =>
+     _repairItems.Where(c => string.IsNullOrEmpty(searchItem) ||
+                             c.SerialNumber.Contains(searchItem, StringComparison.OrdinalIgnoreCase) ||
+                             c.ItemName.Contains(searchItem, StringComparison.OrdinalIgnoreCase));
+
+    private void OnSearchTermInputOptimized(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        searchTerm = e.Value.ToString();
+        IsDropdownVisible = true;
+    }
+
+    private async Task LoadPageData()
+    {
+        try
+        {
+            Console.WriteLine($"📥 Loading page {currentPage}...");
+
+            var result = await Cache.GetOrSetAsync(
+                CacheKeys.ReceiveItem(currentPage, pageSize),
+                () => RepairItemService.SearchRepairServicesAsync(
+                    pageNumber: currentPage,
+                    pageSize: pageSize,
+                    status: "Item Recieved",
+                    sortBy: "reportNo",
+                    sortDescending: true),
+                TimeSpan.FromMinutes(3)
+            );
+
+            filteredRepairServices = result?.Items ?? new List<RepairServices>();
+            totalPages = result?.TotalPages ?? 0;
+            totalItems = result?.TotalCount ?? 0;
+
+            Console.WriteLine($"✅ Page {currentPage} loaded: {filteredRepairServices.Count()} items");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading page: {ex.Message}");
+        }
+    }
+
+    private async Task LoadUniqueItems()
+    {
+        try
+        {
+            var result = await ItemService.GetItemsPagedAsync(pageNumber: 1, pageSize: 10);
+
+            uniqueItems = result.Items
+                .GroupBy(item => item.ItemName)
+                .Select(group => group.First())
+                .ToList();
+
+            Console.WriteLine($"Loaded {uniqueItems.Count()} unique items");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading unique items: {ex.Message}");
+            uniqueItems = new List<Repairs>();
+        }
+    }
+
+    private async Task GoToPage(int page)
+    {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        await LoadPageData();
+        StateHasChanged();
+    }
+
+    private async Task NextPage()
+    {
+        if (currentPage < totalPages)
+        {
+            currentPage++;
+            await LoadPageData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            await LoadPageData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task FirstPage()
+    {
+        currentPage = 1;
+        await LoadPageData();
+        StateHasChanged();
+    }
+
+    private async Task LastPage()
+    {
+        currentPage = totalPages;
+        await LoadPageData();
+        StateHasChanged();
+    }
+
+    private async void ShowAddItemDialog()
+    {
+        try
+        {
+            var allItemsResult = await ItemService.GetItemsPagedAsync(pageNumber: 1, pageSize: 10);
+            allExistingItems = allItemsResult.Items;
+
+            string serialNumberToUse = GetSerialNumberFromInput();
+
+            if (!string.IsNullOrWhiteSpace(serialNumberToUse))
+            {
+                var existingItem = allExistingItems.FirstOrDefault(item =>
+                    item.SerialNumber.Equals(serialNumberToUse, StringComparison.OrdinalIgnoreCase));
+
+                if (existingItem != null)
+                {
+                    SetUpdateMode(existingItem);
+                    Console.WriteLine($"Update mode: {existingItem.SerialNumber}");
+                }
+                else
+                {
+                    SetCreateModeWithSerial(serialNumberToUse);
+                    Console.WriteLine($"Create mode with serial: {serialNumberToUse}");
+                }
+            }
+            else
+            {
+                SetCreateModeEmpty();
+                Console.WriteLine("Create mode: new item");
+            }
+
+            await LoadUniqueItems();
+            isAddItemDialogVisible = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in ShowAddItemDialog: {ex.Message}");
+            ShowErrorToast($"Error: {ex.Message}");
+        }
+    }
+
+    private string GetSerialNumberFromInput()
+    {
+        if (_selectedItem != null && !string.IsNullOrWhiteSpace(_selectedItem.SerialNumber))
+        {
+            return _selectedItem.SerialNumber;
+        }
+        else if (!string.IsNullOrWhiteSpace(barcodeScan))
+        {
+            return barcodeScan.Trim();
+        }
+        else if (!string.IsNullOrWhiteSpace(searchItem))
+        {
+            string searchText = searchItem.Trim();
+
+            if (searchText.Contains(" | "))
+            {
+                var parts = searchText.Split(" | ");
+                if (parts.Length > 1)
+                {
+                    return parts[1].Trim();
+                }
+            }
+            else
+            {
+                var foundBySerial = allExistingItems.FirstOrDefault(item =>
+                    item.SerialNumber.Equals(searchText, StringComparison.OrdinalIgnoreCase));
+
+                if (foundBySerial != null)
+                {
+                    return foundBySerial.SerialNumber;
+                }
+                else
+                {
+                    var foundByName = allExistingItems.FirstOrDefault(item =>
+                        item.ItemName.Equals(searchText, StringComparison.OrdinalIgnoreCase));
+
+                    if (foundByName != null)
+                    {
+                        return foundByName.SerialNumber;
+                    }
+                }
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private void SetUpdateMode(Repairs existingItem)
+    {
+        isUpdateMode = true;
+        selectedSerialForUpdate = existingItem.SerialNumber;
+        newItemService = new Repairs
+        {
+            Id = existingItem.Id,
+            SerialNumber = existingItem.SerialNumber,
+            ItemName = existingItem.ItemName,
+            ItemType = existingItem.ItemType
+        };
+    }
+
+    private void SetCreateModeWithSerial(string serialNumber)
+    {
+        isUpdateMode = false;
+        newItemService = new Repairs
+        {
+            SerialNumber = serialNumber,
+            ItemName = string.Empty,
+            ItemType = "Generate",
+            Id = Guid.NewGuid()
+        };
+    }
+
+    private void SetCreateModeEmpty()
+    {
+        isUpdateMode = false;
+        newItemService = new Repairs
+        {
+            Id = Guid.NewGuid(),
+            ItemType = "Generate",
+            SerialNumber = string.Empty,
+            ItemName = string.Empty
+        };
+    }
+
+    private void ShowErrorToast(string message)
+    {
+        ToastNotificationService.ShowToast(new ToastOptions
+        {
+            ProviderName = "Error",
+            Title = "Error",
+            Text = message,
+            ThemeMode = ToastThemeMode.Pastel,
+            RenderStyle = ToastRenderStyle.Danger
+        });
+    }
+
+    private void CancelAddItemDialog()
+    {
+        ResetDialog();
+        StateHasChanged();
+    }
+
+    private string GenerateRandomSerialNumber()
+    {
+        const string letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const string numbers = "0123456789";
+        var random = new Random();
+
+        string letter = letters[random.Next(letters.Length)].ToString();
+        string numberPart = new string(Enumerable.Repeat(numbers, 5)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+
+        return letter + numberPart;
+    }
+
+    private string GenerateRandomSerialNumberAlternative()
+    {
+        var random = new Random();
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        return new string(Enumerable.Repeat(chars, 8)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+
+    // ✅ PRIORITY 5: OPTIMIZED Save with batched state updates
+    private async Task SaveNewItemService()
+    {
+        try
+        {
+            // ✅ Reset validation state
+            IsValidationErrorVisible = false;
+            ValidationMessage = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(newItemService.ItemName))
+            {
+                ValidationMessage = "Item name is required.";
+                IsValidationErrorVisible = true;
+                StateHasChanged(); // Single state update
+                return;
+            }
+
+            if (isUpdateMode)
+            {
+                Console.WriteLine($"Updating: {newItemService.SerialNumber} -> {newItemService.ItemName}");
+
+                if (string.IsNullOrWhiteSpace(newItemService.SerialNumber))
+                {
+                    ValidationMessage = "Serial number required.";
+                    IsValidationErrorVisible = true;
+                    StateHasChanged();
+                    return;
+                }
+
+                try
+                {
+                    await ItemService.UpdateItemNameBySerialNumberAsync(
+                        serialNumber: newItemService.SerialNumber,
+                        newItemName: newItemService.ItemName
+                    );
+
+                    // ✅ Update local state
+                    var existing = _repairItems.FirstOrDefault(i =>
+                        i.SerialNumber.Equals(newItemService.SerialNumber, StringComparison.OrdinalIgnoreCase));
+                    if (existing != null)
+                    {
+                        existing.ItemName = newItemService.ItemName;
+                    }
+
+                    var existingAll = allExistingItems.FirstOrDefault(i =>
+                        i.SerialNumber.Equals(newItemService.SerialNumber, StringComparison.OrdinalIgnoreCase));
+                    if (existingAll != null)
+                    {
+                        existingAll.ItemName = newItemService.ItemName;
+                    }
+
+                    var existingUnique = uniqueItems.FirstOrDefault(i =>
+                        i.SerialNumber.Equals(newItemService.SerialNumber, StringComparison.OrdinalIgnoreCase));
+                    if (existingUnique != null)
+                    {
+                        existingUnique.ItemName = newItemService.ItemName;
+                    }
+
+                    Console.WriteLine($"✅ Updated locally: {newItemService.SerialNumber}");
+
+                    ToastNotificationService.ShowToast(new ToastOptions
+                    {
+                        ProviderName = "Customization",
+                        Title = "Success",
+                        Text = $"'{newItemService.SerialNumber}' updated!",
+                        ThemeMode = ToastThemeMode.Pastel,
+                        RenderStyle = ToastRenderStyle.Success
+                    });
+                }
+                catch (KeyNotFoundException ex)
+                {
+                    ValidationMessage = $"Serial '{newItemService.SerialNumber}' not found.";
+                    IsValidationErrorVisible = true;
+                    Console.WriteLine($"Not found: {ex.Message}");
+                    StateHasChanged();
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    ValidationMessage = $"Update failed: {ex.Message}";
+                    IsValidationErrorVisible = true;
+                    Console.WriteLine($"Update error: {ex.Message}");
+                    StateHasChanged();
+                    return;
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Creating: {newItemService.ItemName}");
+
+                if (string.IsNullOrWhiteSpace(newItemService.SerialNumber))
+                {
+                    newItemService.SerialNumber = GenerateUniqueSerialNumberFromMemory();
+                    Console.WriteLine($"Generated serial: {newItemService.SerialNumber}");
+                }
+                else
+                {
+                    if (allExistingItems.Any(i => i.SerialNumber.Equals(newItemService.SerialNumber, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        ValidationMessage = $"Serial '{newItemService.SerialNumber}' exists.";
+                        IsValidationErrorVisible = true;
+                        StateHasChanged();
+                        return;
+                    }
+                }
+
+                newItemService.ItemType = "Generate";
+
+                try
+                {
+                    await ItemService.CreateItemAsync(newItemService);
+
+                    var createdItem = new Repairs
+                    {
+                        Id = newItemService.Id != Guid.Empty ? newItemService.Id : Guid.NewGuid(),
+                        SerialNumber = newItemService.SerialNumber,
+                        ItemName = newItemService.ItemName,
+                        ItemType = newItemService.ItemType
+                    };
+
+                    _repairItems = _repairItems.Append(createdItem).ToList();
+                    allExistingItems = allExistingItems.Append(createdItem).ToList();
+
+                    if (!uniqueItems.Any(i => i.ItemName.Equals(createdItem.ItemName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        uniqueItems = uniqueItems.Append(createdItem).ToList();
+                    }
+
+                    Console.WriteLine($"✅ Created locally: {createdItem.SerialNumber}");
+
+                    ToastNotificationService.ShowToast(new ToastOptions
+                    {
+                        ProviderName = "Customization",
+                        Title = "Success",
+                        Text = $"Created! Serial: '{newItemService.SerialNumber}'",
+                        ThemeMode = ToastThemeMode.Pastel,
+                        RenderStyle = ToastRenderStyle.Success
+                    });
+                }
+                catch (Exception ex)
+                {
+                    ValidationMessage = $"Create failed: {ex.Message}";
+                    IsValidationErrorVisible = true;
+                    Console.WriteLine($"Create error: {ex.Message}");
+                    StateHasChanged();
+                    return;
+                }
+            }
+
+            // ✅ Update search selection
+            if (isUpdateMode || !string.IsNullOrWhiteSpace(newItemService.SerialNumber))
+            {
+                var updatedItem = _repairItems.FirstOrDefault(i =>
+                    i.SerialNumber.Equals(newItemService.SerialNumber, StringComparison.OrdinalIgnoreCase));
+
+                if (updatedItem != null)
+                {
+                    searchItem = $"{updatedItem.ItemName}";
+                    OnItemSelect(updatedItem);
+                }
+            }
+
+            // ✅ Fire-and-forget SignalR
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    if (hubConnection?.State == HubConnectionState.Connected)
+                    {
+                        await hubConnection.SendAsync("BroadcastItemUpdate", isUpdateMode ? "ItemUpdated" : "ItemCreated");
+                        Console.WriteLine("📡 SignalR sent");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ SignalR failed: {ex.Message}");
+                }
+            });
+
+            // ✅ Single batched state update at the end
+            ResetDialog();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ValidationMessage = $"Error: {ex.Message}";
+            IsValidationErrorVisible = true;
+            Console.WriteLine($"Exception: {ex}");
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = $"Failed: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+
+            StateHasChanged();
+        }
+    }
+
+    private void ResetDialog()
+    {
+        isAddItemDialogVisible = false;
+        newItemService = new Repairs();
+        isUpdateMode = false;
+        selectedSerialForUpdate = string.Empty;
+        IsValidationErrorVisible = false;
+        ValidationMessage = string.Empty;
+    }
+
+    private async Task<string> GetUserNameByIdAsync(Guid? userId)
+    {
+        return await GlobalUserCache.GetUserNameByIdAsync(userId);
+    }
+
+    private void NewRepairService_Click()
+    {
+        receiveItem = new ReceiveItemRequest();
+        searchTerm = string.Empty;
+        searchItem = string.Empty;
+        isThirdPartyService = false;
+        selectedCompanyName = string.Empty;
+        _selectedCompany = null;
+        selectedItem = string.Empty;
+        _selectedItem = null;
+        isEditMode = false;
+        editingServiceId = Guid.Empty;
+        IsDropdownVisible = false;
+        IsDropdownItemVisible = false;
+
+        receiveItem.ServicePriorityId = 2;
+        receiveItem.ServiceLocation = "CompanyService";
+
+        pageTitle = Loc[nameof(ResourceStrings.TextNewRepair)];
+        isEditDialogVisible = true;
+    }
+
+    private static DateTime _lastGeneratedDate = DateTime.MinValue;
+    private static int _monthlySequence = 0;
+
+    public string GenerateReportNumber()
+    {
+        string datePart = DateTime.UtcNow.ToString("yyyyMM");
+
+        if (_lastGeneratedDate.ToString("yyyyMM") != datePart)
+        {
+            _monthlySequence = 1;
+            _lastGeneratedDate = DateTime.UtcNow;
+        }
+        else
+        {
+            _monthlySequence++;
+        }
+
+        string sequencePart = _monthlySequence.ToString("D4");
+        return $"{datePart}{DateTime.UtcNow.ToString("dd")}-{sequencePart}";
+    }
+
+    private async void OnBarcodeScanInput(ChangeEventArgs e)
+    {
+        barcodeScan = e.Value?.ToString() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(barcodeScan))
+        {
+            IsDropdownItemVisible = false;
+            IsValidationErrorVisible = false;
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            var searchResult = await ItemService.SearchItemsAsync(
+                pageNumber: 1,
+                pageSize: 20,
+                searchTerm: barcodeScan
+            );
+
+            _repairItems = searchResult.Items;
+
+            var matchingItems = _repairItems.Where(item =>
+                item.SerialNumber.Contains(barcodeScan, StringComparison.OrdinalIgnoreCase) ||
+                item.ItemName.Contains(barcodeScan, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+
+            if (matchingItems.Any())
+            {
+                IsDropdownItemVisible = true;
+                IsValidationErrorVisible = false;
+
+                var exactMatch = matchingItems.FirstOrDefault(item =>
+                    item.SerialNumber.Equals(barcodeScan, StringComparison.OrdinalIgnoreCase)
+                );
+
+                if (exactMatch != null)
+                {
+                    searchItem = $"{exactMatch.ItemName}";
+                    selectedItem = exactMatch.SerialNumber;
+                    _selectedItem = exactMatch;
+                    receiveItem.ItemId = exactMatch.Id;
+                }
+            }
+            else
+            {
+                IsDropdownItemVisible = false;
+                IsValidationErrorVisible = true;
+                ValidationMessage = "លេខម៉ាស៊ីននេះមិនទាន់មានទេ សូមបញ្ចូលម៉ាស៊ីនថ្មីជាមុនសិន!";
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error searching items: {ex.Message}");
+        }
+    }
+    private async Task OnStatusBadgeChanged(RepairServices item, string newStatus)
+    {
+        if (string.IsNullOrEmpty(newStatus) || newStatus == item.Status)
+            return;
+
+        if (newStatus == "Inspecting")
+        {
+            await HandleSetInspecting(item);
+        }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Item Recieved" => "badge-received",
+            "Inspecting" => "badge-inspecting",
+            _ => "badge-default"
+        };
+    }
+    private async Task OnCameraScannerClosed(CloseEventArgs args)
+    {
+        await CloseCameraScanner();
+    }
+
+    private void ProcessBarcodeInput()
+    {
+        if (string.IsNullOrWhiteSpace(barcodeScan))
+        {
+            return;
+        }
+
+        searchItem = barcodeScan;
+
+        var matchingItem = FilteredItems.FirstOrDefault(item =>
+            item.SerialNumber.Equals(barcodeScan, StringComparison.OrdinalIgnoreCase)
+        );
+
+        if (matchingItem != null)
+        {
+            OnItemSelect(matchingItem);
+            IsValidationErrorVisible = false;
+        }
+        else
+        {
+            var partialMatch = FilteredItems.FirstOrDefault(item =>
+                item.SerialNumber.Contains(barcodeScan, StringComparison.OrdinalIgnoreCase)
+            );
+
+            if (partialMatch != null)
+            {
+                IsDropdownItemVisible = true;
+            }
+            else
+            {
+                IsValidationErrorVisible = true;
+                ValidationMessage = "លេខម៉ាស៊ីននេះមិនទាន់មានទេ សូមបញ្ចូលម៉ាស៊ីនថ្មីជាមុនសិន!";
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private async void EditRepairService_Click()
+    {
+        if (selectedRepairService == null)
+        {
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = "Please select a service",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Warning
+            });
+            return;
+        }
+
+        try
+        {
+            isEditMode = true;
+            editingServiceId = selectedRepairService.Id;
+
+            Guid itemId = Guid.Empty;
+            var selectedItem = _repairItems.FirstOrDefault(x =>
+                x.SerialNumber == selectedRepairService.serialNumber);
+
+            if (selectedItem != null)
+            {
+                itemId = selectedItem.Id;
+                searchItem = $"{selectedItem.ItemName}";
+                _selectedItem = selectedItem;
+            }
+            else
+            {
+                var searchResult = await ItemService.SearchItemsAsync(
+                    pageNumber: 1,
+                    pageSize: 1,
+                    searchTerm: selectedRepairService.serialNumber
+                );
+
+                var foundItem = searchResult.Items.FirstOrDefault();
+                if (foundItem != null)
+                {
+                    itemId = foundItem.Id;
+                    searchItem = $"{foundItem.ItemName}";
+                    _selectedItem = foundItem;
+                }
+                else
+                {
+                    ToastNotificationService.ShowToast(new ToastOptions
+                    {
+                        ProviderName = "Error",
+                        Title = "Error",
+                        Text = $"Item '{selectedRepairService.serialNumber}' not found",
+                        ThemeMode = ToastThemeMode.Pastel,
+                        RenderStyle = ToastRenderStyle.Warning
+                    });
+                    return;
+                }
+            }
+
+            receiveItem = new ReceiveItemRequest
+            {
+                Id = selectedRepairService.Id,
+                CustomerId = selectedRepairService.CustomerId,
+                CompanyName = selectedRepairService.CompanyName,
+                Address = selectedRepairService.Address,
+                ContactName = selectedRepairService.ContactName,
+                PhoneNumber = selectedRepairService.PhoneNumber,
+                ItemId = itemId,
+                ServiceDate = selectedRepairService.ServiceDate,
+                ServiceLocation = selectedRepairService.ServiceLocation,
+                ServicePriorityId = selectedRepairService.ServicePriorityId,
+                CustomerRequest = selectedRepairService.CustomerRequest,
+                HasContract = selectedRepairService.hasContract,
+                ReportNo = selectedRepairService.reportNo,
+                CreateBy = selectedRepairService.createby
+            };
+
+            // ✅ FIX 2: Ensure ServicePriorityId is valid after building the object
+            Console.WriteLine($"🔍 DEBUG EditClick: ServicePriorityId from DB = {receiveItem.ServicePriorityId}");
+            Console.WriteLine($"🔍 DEBUG EditClick: Available Priorities = {string.Join(", ", _servicePriorities.Select(p => $"{p.Id}:{p.Name}"))}");
+
+            if (receiveItem.ServicePriorityId <= 0 ||
+                !_servicePriorities.Any(p => p.Id == receiveItem.ServicePriorityId))
+            {
+                // Fallback to first available priority, or default 2
+                receiveItem.ServicePriorityId = _servicePriorities.Any()
+                    ? _servicePriorities.First().Id
+                    : 2;
+
+                Console.WriteLine($"⚠️ ServicePriorityId was invalid, set to fallback: {receiveItem.ServicePriorityId}");
+            }
+            // ✅ END FIX 2
+
+            searchTerm = selectedRepairService.CompanyName;
+
+            var company = _customers.FirstOrDefault(c => c.CompanyName == selectedRepairService.CompanyName);
+            if (company != null)
+            {
+                _selectedCompany = company;
+            }
+
+            isThirdPartyService = selectedRepairService.thirdPartyRepairBy.HasValue;
+
+            pageTitle = Loc[nameof(ResourceStrings.TextEdit)];
+            isEditDialogVisible = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = $"Failed to load: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+    }
+
+    private string GetUserNameDisplay(Guid? userId)
+    {
+        if (!userId.HasValue || userId.Value == Guid.Empty)
+            return "Unknown";
+
+        string userIdString = userId.Value.ToString();
+
+        if (!_usersLoaded)
+            return "Loading...";
+
+        if (_allUsers.TryGetValue(userIdString, out string username))
+            return username;
+
+        return "Unknown User";
+    }
+
+    private void DeleteRepairService_Click()
+    {
+        if (selectedRepairService == null)
+        {
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = "Please select a service",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Warning
+            });
+            return;
+        }
+
+        isDeleteDialogVisible = true;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (selectedRepairService == null) return;
+
+        try
+        {
+            IsSaving = true;
+            IsLoading = true;
+            StateHasChanged();
+
+            string reportNo = selectedRepairService.reportNo;
+            Guid deletedItemId = selectedRepairService.Id;
+
+            await ReceiveItemService.DeleteReceiveItemAsync(deletedItemId);
+
+            // ✅ Publish MQ
+            await MQ.PublishDeleteAsync(
+    MessageQueueHelper.Queues.ReceiveItem,
+    deletedItemId,
+    reportNo
+);
+
+            // ✅ Invalidate Cache
+            await Cache.InvalidateManyAsync(
+                CacheKeys.ReceiveItem(currentPage, pageSize),
+                CacheKeys.ReceiveItem(1, pageSize),
+                CacheKeys.DashboardStats
+            );
+
+            // ✅ Update local list
+            filteredRepairServices = filteredRepairServices
+                .Where(item => item.Id != deletedItemId)
+                .ToList();
+
+            totalItems--;
+            totalPages = totalItems > 0
+                ? (int)Math.Ceiling(totalItems / (double)pageSize)
+                : 0;
+
+            if (currentPage > totalPages && totalPages > 0)
+                currentPage = totalPages;
+
+            selectedRepairService = null;
+            isRow = false;
+            isDeleteDialogVisible = false;
+            StateHasChanged();
+
+            // ✅ Background tasks
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    if (hubConnection?.State == HubConnectionState.Connected)
+                        await hubConnection.SendAsync("BroadcastItemDelete", deletedItemId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ SignalR failed: {ex.Message}");
+                }
+
+                try
+                {
+                    await StateManagementAction.SendNotificationReceiveItem("delete", reportNo);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Notification failed: {ex.Message}");
+                }
+            });
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Customization",
+                Title = "Deleted",
+                Text = $"{reportNo} deleted",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Success
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Delete failed: {ex.Message}");
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Delete Failed",
+                Text = $"Failed: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+            await LoadPageData();
+        }
+        finally
+        {
+            IsSaving = false;
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Check_Click()
+    {
+        if (selectedRepairService != null)
+        {
+            isViewDialogVisible = true;
+            DialogEdit.ShowAsync();
+        }
+        else
+        {
+            Console.WriteLine("No service selected");
+        }
+    }
+
+    private string CustomerIdString
+    {
+        get => receiveItem.CustomerId == Guid.Empty ? string.Empty : receiveItem.CustomerId.ToString();
+        set => receiveItem.CustomerId = Guid.TryParse(value, out var guid) ? guid : Guid.Empty;
+    }
+
+    private string ItemIdString
+    {
+        get => receiveItem.ItemId == Guid.Empty ? string.Empty : receiveItem.ItemId.ToString();
+        set => receiveItem.ItemId = Guid.TryParse(value, out var guid) ? guid : Guid.Empty;
+    }
+
+    private async Task Save()
+    {
+        if (IsSaving || IsLoading)
+        {
+            Console.WriteLine("⚠️ Save in progress");
+            return;
+        }
+
+        try
+        {
+            IsSaving = true;
+            IsLoading = true;
+            StateHasChanged();
+
+            Console.WriteLine("💾 Starting save...");
+
+            // ✅ Validate ServicePriorityId
+            Console.WriteLine($"🔍 DEBUG: ServicePriorityId = {receiveItem.ServicePriorityId}");
+            Console.WriteLine($"🔍 DEBUG: Valid Priorities = {string.Join(", ", _servicePriorities.Select(p => $"{p.Id}:{p.Name}"))}");
+
+            if (receiveItem.ServicePriorityId <= 0)
+            {
+                ValidationMessage = "Please select a Service Priority.";
+                IsValidationErrorVisible = true;
+                IsSaving = false;
+                IsLoading = false;
+                StateHasChanged();
+                return;
+            }
+
+            if (!_servicePriorities.Any(p => p.Id == receiveItem.ServicePriorityId))
+            {
+                ValidationMessage = $"Invalid Service Priority (ID: {receiveItem.ServicePriorityId}). Please select a valid one.";
+                IsValidationErrorVisible = true;
+                IsSaving = false;
+                IsLoading = false;
+                StateHasChanged();
+                return;
+            }
+
+            // ✅ Validate Item
+            var selectedRepair = _repairItems.FirstOrDefault(r => r.Id == receiveItem.ItemId);
+            if (selectedRepair == null)
+            {
+                ValidationMessage = "Invalid item.";
+                IsValidationErrorVisible = true;
+                Console.WriteLine("❌ No item selected");
+                StateHasChanged();
+                return;
+            }
+
+            string selectedItemName = selectedRepair.ItemName;
+            string serialNumber = selectedRepair.SerialNumber;
+            Console.WriteLine($"📦 Item: {selectedItemName} ({serialNumber})");
+
+            // ✅ Validate User
+            var currentUserId = JwtSessionService.GetCurrentUserId();
+            if (!currentUserId.HasValue)
+            {
+                ValidationMessage = "Unable to identify user. Please login.";
+                IsValidationErrorVisible = true;
+                Console.WriteLine("❌ No user ID from JWT");
+                ToastNotificationService.ShowToast(new ToastOptions
+                {
+                    ProviderName = "Error",
+                    Title = "Authentication Error",
+                    Text = "Session expired. Please login.",
+                    ThemeMode = ToastThemeMode.Pastel,
+                    RenderStyle = ToastRenderStyle.Danger
+                });
+                StateHasChanged();
+                return;
+            }
+
+            Guid userGuid = currentUserId.Value;
+            string reportNo = receiveItem.ReportNo;
+            Console.WriteLine($"✅ User ID: {userGuid}");
+
+            // ════════════════════════════════
+            // UPDATE MODE
+            // ════════════════════════════════
+            if (isEditMode)
+            {
+                Console.WriteLine("📝 UPDATE MODE...");
+                Console.WriteLine($"📝 Sending ServicePriorityId = {receiveItem.ServicePriorityId} to API");
+
+                await ReceiveItemService.UpdateReceiveItemAsync(receiveItem);
+                Console.WriteLine($"✅ Updated: {receiveItem.ReportNo}");
+
+                reportNo = receiveItem.ReportNo;
+
+                await MQ.PublishUpdateAsync(
+                    MessageQueueHelper.Queues.ReceiveItem,
+                    receiveItem.Id,
+                    reportNo,
+                    userGuid
+                );
+                Console.WriteLine($"📨 Published Update to RabbitMQ: {reportNo}");
+
+                await Cache.InvalidateManyAsync(
+                    CacheKeys.ReceiveItem(currentPage, pageSize),
+                    CacheKeys.ReceiveItem(1, pageSize),
+                    CacheKeys.DashboardStats
+                );
+                Console.WriteLine("🗑️ Cache invalidated");
+
+                var indexToUpdate = ((List<RepairServices>)filteredRepairServices)
+                    .FindIndex(x => x.Id == receiveItem.Id);
+
+                if (indexToUpdate >= 0)
+                {
+                    ((List<RepairServices>)filteredRepairServices)[indexToUpdate] = new RepairServices
+                    {
+                        Id = receiveItem.Id,
+                        reportNo = receiveItem.ReportNo,
+                        ServiceDate = receiveItem.ServiceDate,
+                        CompanyName = receiveItem.CompanyName,
+                        Address = receiveItem.Address,
+                        ContactName = receiveItem.ContactName,
+                        PhoneNumber = receiveItem.PhoneNumber,
+                        itemName = selectedItemName,
+                        serialNumber = serialNumber,
+                        CustomerRequest = receiveItem.CustomerRequest,
+                        ServiceLocation = receiveItem.ServiceLocation,
+                        ServicePriorityId = receiveItem.ServicePriorityId,
+                        hasContract = receiveItem.HasContract,
+                        Status = "Item Recieved",
+                        createby = receiveItem.CreateBy,
+                        CustomerId = receiveItem.CustomerId
+                    };
+                    Console.WriteLine("✅ Local list updated");
+                }
+
+                ToastNotificationService.ShowToast(new ToastOptions
+                {
+                    ProviderName = "Customization",
+                    Title = "Success",
+                    Text = "Service updated",
+                    ThemeMode = ToastThemeMode.Pastel,
+                    RenderStyle = ToastRenderStyle.Success
+                });
+            }
+            // ════════════════════════════════
+            // CREATE MODE
+            // ════════════════════════════════
+            else
+            {
+                Console.WriteLine("➕ CREATE MODE...");
+
+                Console.WriteLine("🔍 Checking duplicates...");
+                var restrictedStatuses = new[]
+                {
+                "Item Recieved",
+                "Inspection",
+                "Awaiting Customer Confirm",
+                "Awaiting Sparepart",
+                "Repairing",
+                "Repair by Third-Party"
+            };
+
+                var existingStatusResult = await RepairItemService.SearchRepairServicesAsync(
+                    pageNumber: 1,
+                    pageSize: 1,
+                    serialNumber: serialNumber
+                );
+
+                if (existingStatusResult.Items.Any())
+                {
+                    var existingService = existingStatusResult.Items.First();
+                    if (restrictedStatuses.Contains(existingService.Status))
+                    {
+                        ValidationMessage = $"ម៉ាស៊ុនមួយនេះ '{serialNumber}' កំពុងស្ថិតនៅក្នុងស្ថានភាព '{existingService.Status}' មិនអាចបញ្ចូលម្ដងទៀតបានទេ។";
+                        IsValidationErrorVisible = true;
+                        Console.WriteLine($"❌ Duplicate: '{serialNumber}' in '{existingService.Status}'");
+                        ToastNotificationService.ShowToast(new ToastOptions
+                        {
+                            ProviderName = "Error",
+                            Title = "Duplicate",
+                            Text = $"'{serialNumber}' in '{existingService.Status}'",
+                            ThemeMode = ToastThemeMode.Pastel,
+                            RenderStyle = ToastRenderStyle.Warning
+                        });
+                        StateHasChanged();
+                        return;
+                    }
+                    Console.WriteLine($"✅ '{serialNumber}' in '{existingService.Status}' - allowing");
+                }
+                else
+                {
+                    Console.WriteLine($"✅ No existing service for '{serialNumber}'");
+                }
+
+                receiveItem.CreateBy = userGuid;
+                receiveItem.ReportNo = null;
+                Console.WriteLine($"✅ Set CreateBy: {userGuid}");
+
+                await ReceiveItemService.CreateReceiveItemAsync(receiveItem);
+                Console.WriteLine("✅ Created in DB");
+
+                try
+                {
+                    reportNo = await RepairItemService.GetLatestReportNoAsync();
+                    receiveItem.ReportNo = reportNo;
+                    Console.WriteLine($"✅ Report No: {reportNo}");
+                }
+                catch (HttpRequestException ex)
+                {
+                    ErrorMessage = ex.Message.Contains("404")
+                        ? "ReportNo endpoint not found."
+                        : ex.Message;
+                    Console.WriteLine($"❌ HTTP Error: {ex.Message}");
+                    StateHasChanged();
+                    return;
+                }
+
+                await MQ.PublishCreateAsync(
+                    MessageQueueHelper.Queues.ReceiveItem,
+                    receiveItem.Id,
+                    reportNo,
+                    userGuid
+                );
+                Console.WriteLine($"📨 Published Create to RabbitMQ: {reportNo}");
+
+                await Cache.InvalidateManyAsync(
+                    CacheKeys.ReceiveItem(currentPage, pageSize),
+                    CacheKeys.ReceiveItem(1, pageSize),
+                    CacheKeys.DashboardStats
+                );
+                Console.WriteLine("🗑️ Cache invalidated");
+
+                var newService = new RepairServices
+                {
+                    Id = receiveItem.Id != Guid.Empty ? receiveItem.Id : Guid.NewGuid(),
+                    reportNo = reportNo,
+                    ServiceDate = receiveItem.ServiceDate,
+                    CompanyName = receiveItem.CompanyName,
+                    Address = receiveItem.Address,
+                    ContactName = receiveItem.ContactName,
+                    PhoneNumber = receiveItem.PhoneNumber,
+                    itemName = selectedItemName,
+                    serialNumber = serialNumber,
+                    CustomerRequest = receiveItem.CustomerRequest,
+                    ServiceLocation = receiveItem.ServiceLocation,
+                    ServicePriorityId = receiveItem.ServicePriorityId,
+                    hasContract = receiveItem.HasContract,
+                    Status = "Item Recieved",
+                    createby = userGuid,
+                    CustomerId = receiveItem.CustomerId
+                };
+
+                var localList = filteredRepairServices.ToList();
+                localList.Insert(0, newService);
+                if (localList.Count > pageSize)
+                    localList.RemoveAt(localList.Count - 1);
+
+                filteredRepairServices = localList;
+                totalItems++;
+                totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+                Console.WriteLine("✅ Local list updated");
+
+                ToastNotificationService.ShowToast(new ToastOptions
+                {
+                    ProviderName = "Customization",
+                    Title = "Success",
+                    Text = "Service created",
+                    ThemeMode = ToastThemeMode.Pastel,
+                    RenderStyle = ToastRenderStyle.Success
+                });
+            }
+
+            // ✅ Close Dialog
+            isEditDialogVisible = false;
+
+            // ✅ FIXED — Capture state "BEFORE" resetting isEditMode/isThirdPartyService.
+            // Previously these were captured AFTER reset, so capturedIsEdit/capturedThirdParty
+            // were ALWAYS false inside the background Task.Run, causing Notification/SignalR/
+            // Third-Party logic to behave incorrectly on Edit/Third-Party flows.
+            var capturedReportNo = reportNo;
+            var capturedIsEdit = isEditMode;
+            var capturedThirdParty = isThirdPartyService;
+
+            // ✅ Now safe to reset
+            isEditMode = false;
+            editingServiceId = Guid.Empty;
+            isThirdPartyService = false;
+            StateHasChanged();
+            Console.WriteLine("✅ Dialog closed");
+
+            // ✅ Background tasks — fire and forget
+            _ = Task.Run(async () =>
+            {
+                // Notification
+                try
+                {
+                    string action = capturedIsEdit ? "update" : "create";
+                    await StateManagementAction.SendNotificationReceiveItem(action, capturedReportNo);
+                    Console.WriteLine($"📧 Notification sent: {capturedReportNo}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Notification failed: {ex.Message}");
+                }
+
+                // Third-party
+                try
+                {
+                    if (capturedThirdParty)
+                    {
+                        Console.WriteLine("🔧 Processing third-party...");
+                        RepairServices serviceToUpdate;
+
+                        if (capturedIsEdit)
+                        {
+                            serviceToUpdate = selectedRepairService;
+                        }
+                        else
+                        {
+                            serviceToUpdate = (await RepairItemService.SearchRepairServicesAsync(
+                                pageNumber: 1,
+                                pageSize: 1,
+                                searchTerm: capturedReportNo
+                            )).Items.FirstOrDefault();
+                        }
+
+                        if (serviceToUpdate != null)
+                        {
+                            var thirdPartyRequest = new ThirdPartyRepairRequest
+                            {
+                                Id = serviceToUpdate.Id,
+                                ThirdPartyRepairBy = receiveItem.CreateBy
+                            };
+                            await ThirdPartyRepairService.SetThirdPartyRepairAsync(thirdPartyRequest);
+                            Console.WriteLine($"✅ Third-party assigned: {receiveItem.CreateBy}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Third-party failed: {ex.Message}");
+                }
+
+                // SignalR
+                try
+                {
+                    if (hubConnection?.State == HubConnectionState.Connected)
+                    {
+                        string eventType = capturedIsEdit ? "ItemUpdated" : "ItemCreated";
+                        await hubConnection.SendAsync("BroadcastItemUpdate", eventType);
+                        Console.WriteLine($"📡 SignalR sent: {eventType}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ SignalR failed: {ex.Message}");
+                }
+
+                // Refresh User Cache
+                try
+                {
+                    await GlobalUserCache.RefreshUsersAsync();
+                    Console.WriteLine("✅ User cache refreshed");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Cache refresh failed: {ex.Message}");
+                }
+            });
+
+            Console.WriteLine("✅ SAVE COMPLETE");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            Console.WriteLine($"❌ SAVE FAILED: {ex.Message}");
+            Console.WriteLine($"Stack: {ex.StackTrace}");
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = ex.Message,
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+
+            await LoadPageData();
+        }
+        finally
+        {
+            IsSaving = false;
+            IsLoading = false;
+            StateHasChanged();
+            Console.WriteLine("🏁 Save finalized");
+        }
+    }
+
+    private void OnAutoSelectFirstItem()
+    {
+        var firstItem = FilteredItems.FirstOrDefault();
+        if (firstItem != null)
+        {
+            OnItemSelect(firstItem);
+        }
+    }
+
+    private void CancelEditDialog()
+    {
+        if (IsSaving || IsLoading)
+        {
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Warning",
+                Text = "Save in progress...",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Warning
+            });
+            return;
+        }
+
+        // ✅ Reset all state at once
+        isEditDialogVisible = false;
+        isThirdPartyService = false;
+        isEditMode = false;
+        editingServiceId = Guid.Empty;
+        IsValidationErrorVisible = false;
+        ValidationMessage = string.Empty;
+        ErrorMessage = string.Empty;
+        searchTerm = string.Empty;
+        searchItem = string.Empty;
+        barcodeScan = string.Empty;
+        selectedCompanyName = string.Empty;
+        _selectedCompany = null;
+        selectedItem = string.Empty;
+        _selectedItem = null;
+        IsDropdownVisible = false;
+        IsDropdownItemVisible = false;
+
+        StateHasChanged(); // Single state update
+    }
+
+    // ✅ PRIORITY 4: Reduced debounce from 500ms to 300ms
+    private async void OnSearchTermInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+
+        _customerSearchDebounceTimer?.Dispose();
+
+        if (string.IsNullOrWhiteSpace(searchTerm) || searchTerm.Length < 2)
+        {
+            try
+            {
+                var initialResult = await CustomerService.GetCustomersPaginatedAsync(pageNumber: 1, pageSize: 10);
+                _customers = initialResult.Data ?? new List<Customer>();
+                IsDropdownVisible = false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error loading customers: {ex.Message}");
+                _customers = new List<Customer>();
+            }
+
+            StateHasChanged();
+            return;
+        }
+
+        IsDropdownVisible = true;
+        StateHasChanged();
+
+        // ✅ Reduced to 300ms (was 500ms)
+        _customerSearchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await InvokeAsync(async () =>
+                {
+                    try
+                    {
+                        Console.WriteLine($"🔍 Searching: '{searchTerm}'");
+
+                        var searchResult = await CustomerService.GetCustomersPaginatedAsync(
+                            pageNumber: 1,
+                            pageSize: 20,
+                            searchTerm: searchTerm
+                        );
+
+                        _customers = searchResult.Data ?? new List<Customer>();
+
+                        Console.WriteLine($"✅ Found {_customers.Count()} customers");
+
+                        IsDropdownVisible = _customers.Any();
+
+                        StateHasChanged();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"❌ Search error: {ex.Message}");
+                        IsDropdownVisible = false;
+                        StateHasChanged();
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Timer error: {ex.Message}");
+            }
+        }, null, 300, Timeout.Infinite); // ✅ Changed from 500 to 300
+    }
+
+    private void OnInputClick()
+    {
+        IsDropdownVisible = true;
+    }
+
+    private void OnInputBlur()
+    {
+        Task.Delay(50).ContinueWith(_ =>
+        {
+            InvokeAsync(() => IsDropdownVisible = false);
+        });
+    }
+
+    private Customer _selectedCompany;
+
+    private void OnCompanySelect(Customer company)
+    {
+        searchTerm = company.CompanyName;
+        selectedCompanyName = company.CompanyName;
+        _selectedCompany = company;
+
+        receiveItem.CompanyName = company.CompanyName;
+        receiveItem.Address = company.Address;
+        receiveItem.ContactName = company.ContactName;
+        receiveItem.PhoneNumber = company.PhoneNumber;
+        receiveItem.CustomerId = company.Id;
+
+        IsDropdownVisible = false;
+        StateHasChanged();
+    }
+
+    private System.Threading.Timer _itemSearchDebounceTimer;
+
+    private void OnSearchItemInputOptimized(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        searchItem = e.Value.ToString();
+
+        _itemSearchDebounceTimer?.Dispose();
+
+        if (string.IsNullOrWhiteSpace(searchItem) || searchItem.Length < 2)
+        {
+            IsDropdownItemVisible = false;
+            return;
+        }
+
+        // ✅ 300ms debounce
+        _itemSearchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await InvokeAsync(async () =>
+                {
+                    var searchResult = await ItemService.SearchItemsAsync(
+                        pageNumber: 1,
+                        pageSize: 20,
+                        searchTerm: searchItem
+                    );
+
+                    _repairItems = searchResult.Items;
+                    IsDropdownItemVisible = _repairItems.Any();
+
+                    if (!_repairItems.Any())
+                    {
+                        IsValidationErrorVisible = true;
+                        ValidationMessage = "លេខម៉ាស៊ីននេះមិនទាន់មានទេ សូមបញ្ចូលម៉ាស៊ីនថ្មីជាមុនសិន!";
+                    }
+                    else
+                    {
+                        IsValidationErrorVisible = false;
+                    }
+
+                    StateHasChanged();
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Search error: {ex.Message}");
+            }
+        }, null, 300, Timeout.Infinite); // ✅ 300ms
+    }
+
+    private async Task OpenCameraScanner()
+    {
+        try
+        {
+            scannedBarcode = string.Empty;
+            isCameraScannerVisible = true;
+
+            // ✅ FIXED — objRef ត្រូវ Create មុននឹងបញ្ជូនទៅ JS
+            // មុននេះ objRef មិនដែលត្រូវបាន Initialize ទេ ដូច្នេះ JS Callback
+            // [JSInvokable] OnBarcodeDetected មិនអាចហៅត្រលប់មកវិញបានឡើយ
+            objRef?.Dispose();
+            objRef = DotNetObjectReference.Create(this);
+
+            StateHasChanged();
+
+            await Task.Delay(500);
+
+            await JSRuntime.InvokeVoidAsync("barcodeScanner.startScanner", objRef);
+
+            isScanning = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Camera error: {ex.Message}");
+
+            ToastNotificationService.ShowToast(
+                new ToastOptions
+                {
+                    ProviderName = "Error",
+                    Title = "Camera Error",
+                    Text = "Failed to open camera. Check permissions.",
+                    ThemeMode = ToastThemeMode.Pastel,
+                    RenderStyle = ToastRenderStyle.Danger
+                });
+
+            isCameraScannerVisible = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CloseCameraScanner()
+    {
+        try
+        {
+            isScanning = false;
+            isCameraScannerVisible = false;
+
+            await JSRuntime.InvokeVoidAsync("barcodeScanner.stopScanner");
+
+            scannedBarcode = string.Empty;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Close camera error: {ex.Message}");
+
+            isCameraScannerVisible = false;
+
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnBarcodeDetected(string barcode)
+    {
+        if (!string.IsNullOrEmpty(barcode))
+        {
+            scannedBarcode = barcode;
+            StateHasChanged();
+        }
+    }
+
+    private void OnBarcodeScanKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            ProcessBarcodeInput();
+        }
+    }
+
+    private async Task UseScannedBarcode()
+    {
+        if (!string.IsNullOrEmpty(scannedBarcode))
+        {
+            barcodeScan = scannedBarcode;
+
+            await Task.Delay(500);
+
+            if (FilteredItems.Any())
+            {
+                var exactMatch = FilteredItems.FirstOrDefault(item =>
+                    item.SerialNumber.Equals(scannedBarcode, StringComparison.OrdinalIgnoreCase)
+                );
+
+                if (exactMatch != null)
+                {
+                    OnItemSelect(exactMatch);
+                }
+                else
+                {
+                    IsDropdownItemVisible = true;
+                }
+            }
+            else
+            {
+                IsValidationErrorVisible = true;
+                ValidationMessage = "លេខម៉ាស៊ីននេះមិនទាន់មានទេ សូមបញ្ចូលម៉ាស៊ីនថ្មីជាមុនសិន!";
+            }
+
+            await CloseCameraScanner();
+        }
+    }
+
+    private void OnSearchItemInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        OnSearchItemInputOptimized(e);
+    }
+
+    private async Task ShowCreateNewItemDialog()
+    {
+        string autoGeneratedSerial = await GenerateUniqueSerialNumber();
+
+        newItemType = new Repairs
+        {
+            Id = Guid.NewGuid(),
+            ItemType = "Generate",
+            SerialNumber = autoGeneratedSerial,
+            ItemName = string.Empty
+        };
+
+        IsCreateNewItemValidationErrorVisible = false;
+        CreateNewItemValidationMessage = string.Empty;
+
+        isCreateNewItemDialogVisible = true;
+        StateHasChanged();
+    }
+
+    private void OnReportInputBlur()
+    {
+        Task.Delay(200).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                IsDropdownVisible = false;
+                StateHasChanged();
+            });
+        });
+    }
+
+    private void CloseCustomerDropdown()
+    {
+        IsDropdownVisible = false;
+        StateHasChanged();
+    }
+
+    private void CancelCreateNewItemDialog()
+    {
+        isCreateNewItemDialogVisible = false;
+        newItemType = new Repairs();
+        IsCreateNewItemValidationErrorVisible = false;
+        CreateNewItemValidationMessage = string.Empty;
+        StateHasChanged();
+    }
+
+    // ✅ PRIORITY 4: Reduced from 500ms to 300ms
+    private async Task PerformItemReceivedSearch()
+    {
+        if (string.IsNullOrWhiteSpace(ItemReceivedSearchValue))
+        {
+            await LoadPageData();
+            return;
+        }
+
+        await PerformItemReceivedSearchInternal(ItemReceivedSearchValue);
+    }
+
+    private async Task PerformItemReceivedSearchInternal(string searchValue)
+    {
+        try
+        {
+            var result = await RepairItemService.SearchRepairServicesAsync(
+                pageNumber: 1,
+                pageSize: pageSize,
+                status: "Item Recieved",
+                searchTerm: searchValue.Trim(),
+                sortBy: "reportNo",
+                sortDescending: true
+            );
+
+            filteredRepairServices = result.Items;
+            totalPages = result.TotalPages;
+            totalItems = result.TotalCount;
+            currentPage = 1;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Search error: {ex.Message}");
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Search Error",
+                Text = $"Failed: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+    }
+
+    // ✅ Reduced to 300ms
+    private void OnItemReceivedSearchInput(InputEventArgs args)
+    {
+        _itemReceivedSearchDebounceTimer?.Dispose();
+
+        if (string.IsNullOrWhiteSpace(args.Value))
+        {
+            _ = Task.Run(async () =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadPageData();
+                    StateHasChanged();
+                });
+            });
+            return;
+        }
+
+        _itemReceivedSearchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await InvokeAsync(async () =>
+                {
+                    await PerformItemReceivedSearchInternal(args.Value);
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Search error: {ex.Message}");
+            }
+        }, null, 300, Timeout.Infinite); // ✅ Changed from 500 to 300
+    }
+
+    private async Task ClearItemReceivedSearch()
+    {
+        ItemReceivedSearchValue = string.Empty;
+        currentPage = 1;
+        await LoadPageData();
+        StateHasChanged();
+    }
+
+    private async Task SaveNewItemType()
+    {
+        try
+        {
+            IsCreateNewItemValidationErrorVisible = false;
+            CreateNewItemValidationMessage = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(newItemType.ItemName))
+            {
+                CreateNewItemValidationMessage = "Item name required.";
+                IsCreateNewItemValidationErrorVisible = true;
+                StateHasChanged();
+                return;
+            }
+
+            newItemType.ItemType = "Generate";
+
+            if (string.IsNullOrWhiteSpace(newItemType.SerialNumber))
+            {
+                newItemType.SerialNumber = GenerateUniqueSerialNumberFromMemory();
+            }
+
+            try
+            {
+                await ItemService.CreateItemAsync(newItemType);
+
+                var createdItem = new Repairs
+                {
+                    Id = newItemType.Id != Guid.Empty ? newItemType.Id : Guid.NewGuid(),
+                    SerialNumber = newItemType.SerialNumber,
+                    ItemName = newItemType.ItemName,
+                    ItemType = newItemType.ItemType
+                };
+
+                _repairItems = _repairItems.Append(createdItem).ToList();
+                allExistingItems = allExistingItems.Append(createdItem).ToList();
+
+                if (!uniqueItems.Any(i => i.ItemName.Equals(createdItem.ItemName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    uniqueItems = uniqueItems.Append(createdItem).ToList();
+                }
+
+                Console.WriteLine($"✅ Created locally: {createdItem.SerialNumber}");
+
+                newItemService.ItemName = newItemType.ItemName;
+
+                ToastNotificationService.ShowToast(new ToastOptions
+                {
+                    ProviderName = "Customization",
+                    Title = "Success",
+                    Text = $"Created! Name: '{newItemType.ItemName}', Serial: '{newItemType.SerialNumber}'",
+                    ThemeMode = ToastThemeMode.Pastel,
+                    RenderStyle = ToastRenderStyle.Success
+                });
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (hubConnection?.State == HubConnectionState.Connected)
+                        {
+                            await hubConnection.SendAsync("BroadcastItemUpdate", "NewItemTypeCreated");
+                            Console.WriteLine("📡 SignalR sent");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"⚠️ SignalR failed: {ex.Message}");
+                    }
+                });
+
+                Console.WriteLine($"Created: {newItemType.SerialNumber} -> {newItemType.ItemName}");
+
+                CancelCreateNewItemDialog();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                CreateNewItemValidationMessage = $"Failed: {ex.Message}";
+                IsCreateNewItemValidationErrorVisible = true;
+                Console.WriteLine($"Create error: {ex.Message}");
+                StateHasChanged();
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            CreateNewItemValidationMessage = $"Error: {ex.Message}";
+            IsCreateNewItemValidationErrorVisible = true;
+
+            Console.WriteLine($"Exception: {ex}");
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = $"Failed: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+
+            StateHasChanged();
+        }
+    }
+
+    private string GenerateUniqueSerialNumberFromMemory()
+    {
+        string randomSerial;
+        int attempts = 0;
+        const int maxAttempts = 20;
+
+        do
+        {
+            randomSerial = GenerateRandomSerialNumber();
+            attempts++;
+
+            if (attempts >= maxAttempts)
+            {
+                randomSerial = GenerateTimestampBasedSerialNumber();
+                break;
+            }
+        }
+        while (allExistingItems.Any(i => i.SerialNumber.Equals(randomSerial, StringComparison.OrdinalIgnoreCase)));
+
+        return randomSerial;
+    }
+
+    private Task<string> GenerateUniqueSerialNumber()
+    {
+        return Task.FromResult(GenerateUniqueSerialNumberFromMemory());
+    }
+
+    private string GenerateTimestampBasedSerialNumber()
+    {
+        var random = new Random();
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var randomPart = random.Next(100, 999).ToString();
+
+        return timestamp.Substring(Math.Max(0, timestamp.Length - 6)) + randomPart;
+    }
+
+    private void OnInputItemClick()
+    {
+        IsDropdownItemVisible = true;
+    }
+
+    private void OnInputItemBlur()
+    {
+        Task.Delay(50).ContinueWith(_ =>
+        {
+            InvokeAsync(() => IsDropdownItemVisible = false);
+        });
+    }
+
+    private Repairs _selectedItem;
+
+    private void OnItemSelect(Repairs item)
+    {
+        searchItem = $"{item.ItemName}";
+        selectedItem = item.SerialNumber;
+        _selectedItem = item;
+        receiveItem.ItemId = item.Id;
+
+        IsDropdownItemVisible = false;
+        StateHasChanged();
+    }
+
+    private void OnBarcodeInputBlur(Microsoft.AspNetCore.Components.Web.FocusEventArgs e)
+    {
+        Task.Delay(200).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                if (!string.IsNullOrWhiteSpace(barcodeScan))
+                {
+                    ProcessBarcodeInput();
+                }
+
+                Task.Delay(300).ContinueWith(__ =>
+                {
+                    InvokeAsync(() =>
+                    {
+                        IsDropdownItemVisible = false;
+                        StateHasChanged();
+                    });
+                });
+            });
+        });
+    }
+
+    private void AddToast()
+    {
+        ToastNotificationService.ShowToast(new ToastOptions
+        {
+            ProviderName = "Customization",
+            Title = "System",
+            Text = "Successfully",
+            ThemeMode = ToastThemeMode.Pastel,
+            RenderStyle = ToastRenderStyle.Success
+        });
+    }
+
+    public async Task OnFiltering(Syncfusion.Blazor.DropDowns.FilteringEventArgs args)
+    {
+        args.PreventDefaultAction = true;
+
+        if (string.IsNullOrEmpty(args.Text))
+        {
+            await comboObj.FilterAsync(_repairItems, new Syncfusion.Blazor.Data.Query());
+            return;
+        }
+
+        var orWhere = WhereFilter.Or(new List<WhereFilter>
+        {
+            new WhereFilter { Field = "ItemName", Operator = "contains", value = args.Text, IgnoreCase = true },
+            new WhereFilter { Field = "SerialNumber", Operator = "contains", value = args.Text, IgnoreCase = true }
+        });
+
+        var query = new Syncfusion.Blazor.Data.Query().Where(orWhere);
+        await comboObj.FilterAsync(_repairItems, query);
+
+        if (args.Text.Length > 0)
+        {
+            var matchedItem = _repairItems.FirstOrDefault(item => item.SerialNumber.Equals(args.Text, StringComparison.OrdinalIgnoreCase));
+
+            if (matchedItem != null)
+            {
+                receiveItem.ItemId = matchedItem.Id;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            OnAutoSelectFirstItem();
+        }
+    }
+
+    private string GetSelectedItemSerialNumber()
+    {
+        if (isUpdateMode && !string.IsNullOrWhiteSpace(selectedSerialForUpdate))
+        {
+            return selectedSerialForUpdate;
+        }
+
+        if (_selectedItem != null && !string.IsNullOrEmpty(_selectedItem.SerialNumber))
+        {
+            return _selectedItem.SerialNumber;
+        }
+
+        if (!isUpdateMode && newItemService != null && !string.IsNullOrWhiteSpace(newItemService.SerialNumber))
+        {
+            return newItemService.SerialNumber;
+        }
+
+        if (!string.IsNullOrWhiteSpace(barcodeScan))
+        {
+            return barcodeScan.Trim();
+        }
+
+        return string.Empty;
+    }
+    private async Task HandleSetInspecting(RepairServices item)
+    {
+        try
+        {
+            var currentUserId = JwtSessionService.GetCurrentUserId();
+            if (!currentUserId.HasValue) return;
+
+            item.Status = "Inspecting";
+            StateHasChanged();
+
+            var request = new SetInspectingRequest
+            {
+                Id = item.Id,
+                InspectingBy = currentUserId.Value
+            };
+
+            await InspectingService.SetInspectingAsync(request);
+
+            // ✅ Publish MQ + Invalidate Cache
+            await MQ.PublishStatusChangeAsync(
+    MessageQueueHelper.Queues.ReceiveItem,
+    "ReceiveItem",
+    item.Id,
+    "Inspecting",
+    item.reportNo,
+    currentUserId.Value
+);
+
+            await Cache.InvalidateManyAsync(
+                CacheKeys.ReceiveItem(currentPage, pageSize),
+                CacheKeys.InspectItem(1, pageSize),
+                CacheKeys.DashboardStats
+            );
+
+            filteredRepairServices = filteredRepairServices
+                .Where(x => x.Id != item.Id)
+                .ToList();
+
+            totalItems--;
+            totalPages = totalItems > 0
+                ? (int)Math.Ceiling(totalItems / (double)pageSize)
+                : 0;
+
+            StateHasChanged();
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Customization",
+                Title = "Success",
+                Text = $"{item.reportNo} set to Inspecting",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Success
+            });
+        }
+        catch (Exception ex)
+        {
+            item.Status = "Item Recieved";
+            StateHasChanged();
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = $"Failed: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+    }
+    private string GetCurrentItemName()
+    {
+        if (newItemService != null && !string.IsNullOrWhiteSpace(newItemService.ItemName))
+        {
+            return newItemService.ItemName;
+        }
+
+        return string.Empty;
+    }
+
+    private string GetCustomerType(string companyName)
+    {
+        var customer = _customers.FirstOrDefault(c => c.CompanyName == companyName);
+        return customer?.CustomerType ?? "Unknown";
+    }
+
+    private string GetImagePath(string customerType)
+    {
+        string cleanedCustomerType = customerType.Replace(" ", "_");
+        return $"./images/partner_logo/{cleanedCustomerType}.jpg";
+    }
+
+    private string _fullImagePath;
+    private SfDialog dialogView;
+
+    private void OpenFullImage()
+    {
+        _fullImagePath = GetImagePath(GetCustomerType(receiveItem.CompanyName));
+        dialogView.ShowAsync();
+    }
+
+    private void ShowRepairServiceDetails(RepairServices repairService)
+    {
+        selectedRepairService = repairService;
+        isViewDialogVisible = true;
+        DialogEdit.ShowAsync();
+    }
+
+    private void RowDoubleClickHandler(RecordDoubleClickEventArgs<RepairServices> args)
+    {
+        selectedRepairService = args.RowData;
+
+        if (selectedRepairService != null)
+        {
+            EditRepairService_Click();
+        }
+    }
+
+    private void RowSelectHandler(RowSelectEventArgs<RepairServices> args)
+    {
+        selectedRepairService = args.Data;
+        isRow = selectedRepairService != null;
+    }
+
+    private async Task ShowReportPreview(RepairServices selectedRepairService)
+    {
+        try
+        {
+            this.selectedRepairService = selectedRepairService;
+
+            var report = new Report2();
+
+            string repairByUser = await GlobalUserCache.GetUserNameByIdAsync(selectedRepairService.repairBy);
+            string verifiedByUser = await GlobalUserCache.GetUserNameByIdAsync(selectedRepairService.verifiedBy);
+
+            string repairByPhone = await GetUserPhoneNumberByIdAsync(selectedRepairService.repairBy);
+            string verifiedByPhone = await GetUserPhoneNumberByIdAsync(selectedRepairService.verifiedBy);
+
+            if (selectedRepairService.SparePartItems != null && selectedRepairService.SparePartItems.Any())
+            {
+                foreach (var item in selectedRepairService.SparePartItems)
+                {
+                    if (!item.SparePartId.HasValue || item.SparePartId.Value == Guid.Empty)
+                    {
+                        Console.WriteLine("⚠ Skipping item with no SparePartId");
+                        continue;
+                    }
+
+                    try
+                    {
+                        Console.WriteLine($"🔍 Fetching: {item.SparePartId}");
+                        var sparePartDetails = await SparePartService.GetSparePartByIdAsync(item.SparePartId.Value);
+
+                        if (sparePartDetails != null)
+                        {
+                            item.ItemName = sparePartDetails.ItemName;
+                            item.SerialNumber = sparePartDetails.SerialNumber;
+                            item.UseFor = sparePartDetails.UseFor;
+
+                            Console.WriteLine($"✅ Fetched: {sparePartDetails.ItemName}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"❌ Not found: {item.SparePartId}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"❌ Error: {ex.Message}");
+                    }
+                }
+            }
+
+            report.SetParameters(
+                selectedRepairService,
+                selectedRepairService.ServiceLocation,
+                selectedRepairService.SparePartItems,
+                selectedRepairService.hasContract,
+                repairByUser,
+                verifiedByUser,
+                repairByPhone,
+                verifiedByPhone
+            );
+
+            report.Parameters["Id"].Visible = false;
+            report.Parameters["ReportNumber"].Visible = false;
+            report.Parameters["CompanyName"].Visible = false;
+            report.Parameters["ContactName"].Visible = false;
+            report.Parameters["PhoneNumber"].Visible = false;
+            report.Parameters["Address"].Visible = false;
+            report.Parameters["ItemName"].Visible = false;
+            report.Parameters["SerialNumber"].Visible = false;
+            report.Parameters["CustomerRequest"].Visible = false;
+            report.Parameters["inspection"].Visible = false;
+            report.Parameters["Solution"].Visible = false;
+            report.Parameters["CompanyServiceChecked"].Visible = false;
+            report.Parameters["OnSiteChecked"].Visible = false;
+            report.Parameters["HasContract"].Visible = false;
+            report.Parameters["Datestart"].Visible = false;
+            report.Parameters["Datefinish"].Visible = false;
+            report.Parameters["RepairBy"].Visible = false;
+            report.Parameters["VerifiedBy"].Visible = false;
+            report.Parameters["RepairByPhone"].Visible = false;
+            report.Parameters["VerifiedByPhone"].Visible = false;
+
+            byte[] reportData;
+            using (var ms = new MemoryStream())
+            {
+                report.ExportToPdf(ms);
+                reportData = ms.ToArray();
+            }
+
+            string sanitizedReportNo = selectedRepairService.reportNo?.Replace("/", "-").Replace("\\", "-") ?? "Report";
+            string filename = $"ServiceReport_{sanitizedReportNo}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+
+            string base64Data = Convert.ToBase64String(reportData);
+            await JSRuntime.InvokeVoidAsync("blazorReportsPrint.printReport", base64Data, filename);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Report error: {ex.Message}");
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Report Error",
+                Text = $"Failed: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+    }
+
+    private string GetUserNameById(Guid? userId)
+    {
+        if (!userId.HasValue || userId.Value == Guid.Empty)
+            return "Unknown";
+
+        try
+        {
+            return GlobalUserCache.GetUserNameById(userId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+            return "Error";
+        }
+    }
+
+    private async Task<string> GetUserPhoneNumberByIdAsync(Guid? userId)
+    {
+        return await GlobalUserCache.GetUserPhoneNumberByIdAsync(userId, autoLoad: true);
+    }
+
+    private void OverlayClick(OverlayModalClickEventArgs args)
+    {
+        this.isViewDialogVisible = false;
+    }
+
+    private void CloseDialog()
+    {
+        this.isViewDialogVisible = false;
+    }
+
+    private async Task OnComboBoxClick(MouseEventArgs args)
+    {
+        await comboObj.ShowPopupAsync();
+    }
+
+    private async Task OnComboBoxClick2(MouseEventArgs args)
+    {
+        await comboBoxITem.ShowPopupAsync();
+    }
+
+    private async Task OnComboBoxLocationClick(MouseEventArgs args)
+    {
+        await comboLocation.ShowPopupAsync();
+    }
+
+    public async Task ExportToExcel()
+    {
+        await MyGrid.ExportToExcelAsync();
+    }
+
+    public async Task ExportToPdf()
+    {
+        await MyGrid.ExportToPdfAsync();
+    }
+
+    public void Dispose()
+    {
+        objRef?.Dispose();
+        _itemSearchDebounceTimer?.Dispose();
+        _customerSearchDebounceTimer?.Dispose();
+        _itemReceivedSearchDebounceTimer?.Dispose();
+        hubConnection?.DisposeAsync();
+    }
+}

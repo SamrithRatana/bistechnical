@@ -1,0 +1,94 @@
+﻿@using System.Security.Claims
+@inject MenuService MenuService
+@inject IStringLocalizer<App> Loc
+
+<div class="sidebar @StateCssClass">
+    <AuthorizeView>
+        <Authorized Context="authorizedContext">
+            <DxTreeView AllowSelectNodes="true" CssClass="app-sidebar" AnimationType="LayoutAnimationType.Slide">
+                <Nodes>
+                    @foreach (var parent in MenuItems.Select((v, i) => new { v, i }))
+                    {
+                        <DxTreeViewNode Text="@parent.v.Text"
+                                        CssClass="font"
+                                        IconCssClass="@parent.v.IconCssClass"
+                                        Expanded="@parent.v.Expanded"
+                                        NavigateUrl="@parent.v.NavigateUrl"
+                                        @onclick="() => ToggleNodeExpansion(parent.i)">
+                            <Nodes>
+                                @foreach (var sub in parent.v.SubMenuItems)
+                                {
+                                    <DxTreeViewNode Text="@sub.Text"
+                                                    CssClass="font"
+                                                    IconCssClass="@sub.IconCssClass"
+                                                    Expanded="@sub.Expanded"
+                                                    NavigateUrl="@sub.NavigateUrl">
+                                        <Nodes>
+                                            @foreach (var child in sub.SubMenuItems)
+                                            {
+                                                <DxTreeViewNode NavigateUrl="@child.NavigateUrl"
+                                                                CssClass="font"
+                                                                Text="@child.Text"
+                                                                IconCssClass="@child.IconCssClass"
+                                                                BadgeText="@child.BadgeText" />
+                                            }
+                                        </Nodes>
+                                    </DxTreeViewNode>
+                                }
+                            </Nodes>
+                        </DxTreeViewNode>
+                    }
+                </Nodes>
+            </DxTreeView>
+        </Authorized>
+        <NotAuthorized>
+            <DxTreeView AllowSelectNodes="true" CssClass="app-sidebar" AnimationType="LayoutAnimationType.Slide">
+                <Nodes>
+                    <DxTreeViewNode NavigateUrl="/identity/account/login"
+                                    Text="@Loc["Login"]"
+                                    IconCssClass="oi oi-lock-locked" />
+                </Nodes>
+            </DxTreeView>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    [Parameter]
+    public string StateCssClass { get; set; }
+
+    private List<MenuItem> MenuItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userRoles = authState.User.Claims
+            .Where(c => c.Type == ClaimTypes.Role)
+            .Select(c => c.Value);
+        MenuItems = MenuService.GetMenuItems(userRoles);
+    }
+
+    private void ToggleNodeExpansion(int index)
+    {
+        // Collapse all menus except the one clicked
+        foreach (var menuItem in MenuItems)
+        {
+            menuItem.Expanded = false;
+        }
+
+        // Toggle the clicked node's expanded state
+        var clickedMenuItem = MenuItems[index];
+        clickedMenuItem.Expanded = !clickedMenuItem.Expanded;
+    }
+}
+
+<style>
+    .sidebar {
+        transition: transform 0.3s ease;
+        display: none;
+    }
+
+    .font {
+        font-family: 'Khmer OS';
+    }
+</style>

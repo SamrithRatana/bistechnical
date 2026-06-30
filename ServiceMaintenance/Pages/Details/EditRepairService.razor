@@ -1,0 +1,2218 @@
+﻿@using ServiceMaintenance.Models
+@inject RepairItemService RepairItemService
+@inject ItemService ItemService
+@inject CustomerService CustomerService
+@inject ServiceSparePart SparePartService
+@inject InspectItemService InspectItemService
+@inject StateManagementAction StateManagementAction
+@inject IJSRuntime JSRuntime
+@inject AwaitingCustomerConfirmService AwaitingCustomerConfirmService
+@inject CustomerRejectedService CustomerRejectedService
+@inject AwaitingSparePartService AwaitingSparePartService
+@inject ThirdPartyRepairService ThirdPartyRepairService
+@inject UnrepairableService UnrepairableService
+
+<style>
+/* ===== Modal Structure ===== */
+.edit-modal {
+    display: @(ShowModal ? "block" : "none");
+    position: fixed;
+    z-index: 1050;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.edit-modal-content {
+    background-color: #fefefe;
+    margin: 2% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.edit-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 10px;
+}
+
+.edit-modal-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.close-btn {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: #000;
+}
+
+/* ===== Form Elements ===== */
+.form-section {
+    margin-bottom: 25px;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #007bff;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 8px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.form-control {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.95rem;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-control:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+.textarea-control {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.modern-input {
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 0.5rem;
+    text-align: center;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.modern-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* ===== Customer Dropdown ===== */
+.customer-dropdown {
+    position: absolute;
+    width: 100%;
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    background-color: white;
+    z-index: 2000;
+    margin-top: 5px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-family: 'Khmer OS';
+    top: 100%;
+}
+
+.dropdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.dropdown-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.dropdown-close-btn {
+    font-size: 20px;
+    color: #dc3545;
+    border: none;
+    background: none;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.no-results {
+    padding: 10px;
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    color: #856404;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* ===== Combo Box Items ===== */
+.combo-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    gap: 0.75rem;
+    transition: background 0.2s;
+    border-radius: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.combo-item:hover {
+    background: #eff6ff;
+}
+
+.combo-item-image {
+    width: 50px;
+    height: 50px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid #e0e0e0;
+}
+
+.combo-item-details {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.combo-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.item-name {
+    font-size: 0.85rem;
+    color: #333;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.serial-number {
+    font-size: 0.7rem;
+    color: #666;
+    background: #f0f0f0;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.combo-item-info {
+    font-size: 0.75rem;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
+    max-height: 2.6em;
+}
+
+.divider {
+    margin: 0 0.3rem;
+    color: #ccc;
+}
+
+.btn-view-details {
+    background: none;
+    border: none;
+    color: #2563eb;
+    cursor: pointer;
+    padding: 0.4rem;
+    border-radius: 50%;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-view-details:hover {
+    background: #2563eb;
+    color: white;
+    transform: scale(1.1);
+}
+
+/* ===== Spare Parts Section ===== */
+.sparepart-section {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 10px;
+    margin-top: 15px;
+    background-color: #f8f9fa;
+}
+
+.sparepart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.spare-parts-container {
+    margin: 1.5rem 0;
+}
+
+.modern-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.modern-table thead tr {
+    background: transparent;
+    color: #333;
+}
+
+.modern-table th {
+    padding: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    letter-spacing: 0.5px;
+    border: none;
+}
+
+.modern-table tbody tr {
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.modern-table tbody tr:hover {
+    background: #eff6ff;
+    transform: scale(1.01);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+
+.modern-table td {
+    padding: 1rem;
+    vertical-align: middle;
+    border: none;
+}
+
+/* ===== Buttons ===== */
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+.btn-remove {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    border: none;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 600;
+}
+
+.btn-remove:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+.btn-remove:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-add-spare {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    margin-top: 1rem;
+}
+
+.btn-add-spare:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+
+.btn-add-spare:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ===== Alerts & Messages ===== */
+.success-message {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border: 1px solid #c3e6cb;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border: 1px solid #f5c6cb;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border: 1px solid #ffeaa7;
+}
+
+/* ===== States ===== */
+.loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    color: #2563eb;
+}
+
+.no-records {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    color: #999;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 1rem;
+}
+
+/* ===== Modal Footer ===== */
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+/* ===== Mobile Styles ===== */
+.spare-part-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.card-header-mobile {
+    background: transparent;
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-remove-mobile {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    border: none;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.card-body-mobile {
+    padding: 0 1rem 1rem 1rem;
+}
+
+.mobile-field {
+    margin-bottom: 0.75rem;
+}
+
+.mobile-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #333;
+    font-size: 0.875rem;
+}
+
+.mobile-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.combo-item-mobile {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    gap: 0.75rem;
+}
+
+.combo-item-image-mobile {
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.combo-item-details-mobile {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.combo-item-details-mobile strong {
+    font-size: 0.875rem;
+}
+
+.combo-item-details-mobile small {
+    color: #666;
+    font-size: 0.75rem;
+}
+
+.btn-view-details-mobile {
+    background: none;
+    border: none;
+    color: #2563eb;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.empty-state-mobile {
+    text-align: center;
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    color: #999;
+}
+
+.empty-state-mobile i {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* ===== Responsive Design ===== */
+@@media (max-width: 768px) {
+    .combo-item {
+        padding: 0.6rem;
+        gap: 0.5rem;
+    }
+
+    .combo-item-image {
+        width: 45px;
+        height: 45px;
+    }
+
+    .item-name {
+        font-size: 0.8rem;
+    }
+
+    .serial-number {
+        font-size: 0.65rem;
+        padding: 0.15rem 0.3rem;
+    }
+
+    .combo-item-info {
+        font-size: 0.7rem;
+    }
+
+    .btn-view-details {
+        width: 28px;
+        height: 28px;
+        padding: 0.3rem;
+    }
+}
+
+@@media (max-width: 480px) {
+    .combo-item {
+        padding: 0.5rem;
+        gap: 0.4rem;
+    }
+
+    .combo-item-image {
+        width: 40px;
+        height: 40px;
+    }
+
+    .item-name {
+        font-size: 0.75rem;
+    }
+
+    .serial-number {
+        font-size: 0.6rem;
+    }
+
+    .combo-item-info {
+        font-size: 0.65rem;
+    }
+}
+    /* ✅ ADD THESE STOCK INDICATOR STYLES */
+    .stock-indicator-row {
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .stock-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+        .stock-badge i {
+            font-size: 0.8rem;
+        }
+
+    /* Animate out-of-stock items */
+    @@keyframes pulse-out-of-stock {
+        0%, 100%
+
+    {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+
+    }
+
+    .combo-item:has(.stock-badge[style*="#dc3545"]) {
+        animation: pulse-out-of-stock 2s infinite;
+        opacity: 0.6;
+    }
+
+    /* ✅ MOBILE RESPONSIVE STYLES */
+    @@media (max-width: 768px) {
+        .stock-badge
+
+    {
+        font-size: 0.65rem !important;
+        padding: 2px 6px !important;
+        gap: 0.2rem;
+    }
+
+    .stock-badge i {
+        font-size: 0.7rem !important;
+    }
+
+    }
+
+    @@media (max-width: 480px) {
+        .stock-badge
+
+    {
+        font-size: 0.6rem !important;
+        padding: 2px 5px !important;
+    }
+
+    }
+</style>
+
+<div class="edit-modal">
+    <div class="edit-modal-content">
+        <div class="edit-modal-header">
+            <h2 class="edit-modal-title">Edit Repair Service - @EditModel?.ReportNo</h2>
+            <button class="close-btn" @onclick="CloseModal">&times;</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="success-message">
+                <i class="fas fa-check-circle"></i> @successMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert-danger">
+                <i class="fas fa-exclamation-circle"></i> @errorMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(warningMessage))
+        {
+            <div class="alert-warning">
+                <i class="fas fa-exclamation-triangle"></i> @warningMessage
+            </div>
+        }
+
+        @if (EditModel != null)
+        {
+            <EditForm Model="EditModel" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+
+                <div class="form-section">
+
+                    <h3 class="section-title">Customer Information</h3>
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label class="form-label">Company Name *</label>
+
+                            <input type="text"
+                                   class="form-control"
+                                   @bind="customerSearchTerm"
+                                   @oninput="OnCustomerSearchInput"
+                                   @onclick="OnCustomerInputClick"
+                                   @onblur="OnCustomerInputBlur"
+                                   placeholder="Type to search company (min 2 characters)..."
+                                   style="font-family: 'Khmer OS'" />
+
+                            @if (IsCustomerDropdownVisible && FilteredCustomers.Any())
+
+                            {
+
+                                <div class="customer-dropdown" @onmousedown:preventDefault>
+
+                                    <div class="dropdown-header">
+
+                                        <span style="font-size: 12px; color: #6c757d;">
+
+                                            <strong>Select a company (showing @FilteredCustomers.Count() results)</strong>
+
+                                        </span>
+
+                                        <button class="dropdown-close-btn"
+                                                @onclick="CloseCustomerDropdown"
+                                                type="button">
+
+                                            ×
+
+                                        </button>
+
+                                    </div>
+
+                                    @foreach (var customer in FilteredCustomers)
+
+                                    {
+
+                                        <div class="dropdown-item" @onclick="() => OnCustomerSelect(customer)">
+
+                                            <div style="font-weight: 500;">@customer.CompanyName</div>
+
+                                            <div style="font-size: 12px; color: #6c757d;">@customer.ContactName</div>
+
+                                        </div>
+
+                                    }
+
+                                </div>
+
+                            }
+
+                            else if (!string.IsNullOrWhiteSpace(customerSearchTerm) &&
+
+                            customerSearchTerm.Length >= 2 &&
+
+                            !FilteredCustomers.Any())
+
+                            {
+
+                                <div style="position: absolute; width: 100%; margin-top: 5px; top: 100%;">
+
+                                    <div class="no-results">
+
+                                        <i class="fas fa-exclamation-triangle"></i>
+
+                                        No customers found matching "@customerSearchTerm"
+
+                                    </div>
+
+                                </div>
+
+                            }
+
+                            <ValidationMessage For="@(() => EditModel.CompanyName)" />
+
+                        </div>
+
+                        <div class="form-group">
+
+                            <label class="form-label">Contact Name</label>
+
+                            <InputText class="form-control" @bind-Value="EditModel.ContactName" readonly />
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label class="form-label">Address *</label>
+
+                            <InputText class="form-control" @bind-Value="EditModel.Address" readonly />
+
+                            <ValidationMessage For="@(() => EditModel.Address)" />
+
+                        </div>
+
+                        <div class="form-group">
+
+                            <label class="form-label">Phone Number *</label>
+
+                            <InputText class="form-control" @bind-Value="EditModel.PhoneNumber" readonly />
+
+                            <ValidationMessage For="@(() => EditModel.PhoneNumber)" />
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">Service Details</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Report No</label>
+                            <InputText class="form-control" @bind-Value="EditModel.ReportNo" disabled />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Service Date *</label>
+                            <InputDate class="form-control" @bind-Value="EditModel.ServiceDate" />
+                            <ValidationMessage For="@(() => EditModel.ServiceDate)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Service Location</label>
+                            <InputText class="form-control" @bind-Value="EditModel.ServiceLocation" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Service Type</label>
+                            <InputSelect class="form-control" @bind-Value="EditModel.ServiceTypeId">
+                                <option value="0">Select Type</option>
+                                @foreach (var type in serviceTypes)
+                                {
+                                    <option value="@type.Id">@type.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Service Priority</label>
+                            <InputSelect class="form-control" @bind-Value="EditModel.ServicePriorityId">
+                                <option value="0">Select Priority</option>
+                                @foreach (var priority in servicePriorities)
+                                {
+                                    <option value="@priority.Id">@priority.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <InputSelect class="form-control" @bind-Value="EditModel.StatusId">
+                                <option value="0">Select Status</option>
+                                @foreach (var status in serviceStatuses)
+                                {
+                                    <option value="@status.Id">@status.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <InputCheckbox @bind-Value="EditModel.HasContract" /> Has Contract
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3 class="section-title">Service Description</h3>
+                    <div class="form-group">
+                        <label class="form-label">Customer Request</label>
+                        <InputTextArea class="form-control textarea-control" @bind-Value="EditModel.CustomerRequest" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Inspection</label>
+                        <InputTextArea class="form-control textarea-control" @bind-Value="EditModel.Inspection" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Solution</label>
+                        <InputTextArea class="form-control textarea-control" @bind-Value="EditModel.Solution" />
+                    </div>
+                </div>
+
+               <div class="form-section">
+                    <h3 class="section-title">Spare Parts</h3>
+                    
+                    <div class="spare-parts-container">
+                        <!-- Desktop Table View -->
+                        <div class="table-responsive d-none d-lg-block">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Spare Part</th>
+                                        <th class="text-center">Quantity</th>
+                                        <th class="text-center">Condition</th>
+                                        <th class="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (EditModel.SparePartItems != null && EditModel.SparePartItems.Any())
+                                    {
+                                        @for (int index = 0; index < EditModel.SparePartItems.Count; index++)
+                                        {
+                                            var sparePart = EditModel.SparePartItems[index];
+                                            var currentIndex = index;
+
+                                            <tr class="table-row">
+                                                <td class="spare-part-cell">
+                                                    <SfComboBox TValue="Guid?" TItem="SparePartObject"
+                                                                Placeholder="Select Spare Part"
+                                                                @bind-Value="sparePart.SparePartId"
+                                                                DataSource="@filteredSpareParts"
+                                                                AllowFiltering="true"
+                                                                AllowCustom="false"
+                                                                FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                                                PopupWidth="400px"
+                                                                Enabled="@(!isSubmitting)"
+                                                                CssClass="modern-combo">
+                                                        <ComboBoxEvents Filtering="OnFilteringSparePart" TValue="Guid?" TItem="SparePartObject"></ComboBoxEvents>
+                                                        <ComboBoxFieldSettings Value="Id" Text="ItemName"></ComboBoxFieldSettings>
+                                                        <ComboBoxTemplates TItem="SparePartObject">
+                                                            <ItemTemplate Context="sparePartItem">
+                                                                <div class="combo-item">
+                                                                    <img src="@sparePartItem.PictureUrl"
+                                                                         alt="@sparePartItem.ItemName"
+                                                                         class="combo-item-image" />
+                                                                    <div class="combo-item-details">
+                                                                        <div class="combo-item-header">
+                                                                            <strong class="item-name">@sparePartItem.ItemName</strong>
+                                                                            <span class="serial-number">@sparePartItem.SerialNumber</span>
+                                                                        </div>
+                                                                        <div class="combo-item-info">
+                                                                            <span>@sparePartItem.Description</span>
+                                                                            <span class="divider">|</span>
+                                                                            <span>Use: @sparePartItem.UseFor</span>
+                                                                        </div>
+                                                                        <!-- ✅ ADD STOCK INDICATOR -->
+                                                                        <div class="stock-indicator-row">
+                                                                            @{
+                                                                                var stockLevel = sparePartItem.Quantity;
+                                                                                var stockColor = GetStockColorForCombo(stockLevel);
+                                                                                var stockIcon = GetStockIconForCombo(stockLevel);
+                                                                                var stockText = GetStockTextForCombo(stockLevel);
+                                                                            }
+                                                                            <span class="stock-badge" style="background-color: @stockColor; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
+                                                                                <i class="@stockIcon"></i> @stockText (@stockLevel available)
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <button type="button"
+                                                                            class="btn-view-details"
+                                                                            @onclick="() => ShowFullDetails(sparePartItem)"
+                                                                            @onclick:stopPropagation="true">
+                                                                        <i class="fa fa-eye"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </ItemTemplate>
+                                                            <NoRecordsTemplate>
+                                                                @if (isSparePartLoading)
+                                                                {
+                                                                    <div class="loading-state">
+                                                                        <span class="spinner-border spinner-border-sm"></span>
+                                                                        <span>Searching spare parts...</span>
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="no-records">
+                                                                        <i class="fas fa-search"></i>
+                                                                        <span>No matching spare parts found</span>
+                                                                    </div>
+                                                                }
+                                                            </NoRecordsTemplate>
+                                                        </ComboBoxTemplates>
+                                                    </SfComboBox>
+                                                </td>
+
+                                                <td class="quantity-cell">
+                                                    <InputNumber @bind-Value="sparePart.Quantity"
+                                                                 class="form-control modern-input"
+                                                                 disabled="@isSubmitting"
+                                                                 min="0" />
+                                                </td>
+
+                                                <td class="condition-cell">
+                                                    <SfComboBox TValue="string" TItem="string"
+                                                                Placeholder="Select Condition"
+                                                                @bind-Value="sparePart.Condition"
+                                                                DataSource="@_repairConditions"
+                                                                AllowFiltering="true"
+                                                                FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                                                Enabled="@(!isSubmitting)"
+                                                                CssClass="modern-combo">
+                                                    </SfComboBox>
+                                                </td>
+
+                                                <td class="action-cell">
+                                                    <button type="button"
+                                                            class="btn-remove"
+                                                            @onclick="() => RemoveSparePart(sparePart)"
+                                                            disabled="@isSubmitting"
+                                                            title="Remove spare part">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="4" class="empty-state">
+                                                <i class="fas fa-inbox"></i>
+                                                <p>No spare parts added yet</p>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Mobile Card View -->
+                        <div class="d-block d-lg-none">
+                            @if (EditModel.SparePartItems != null && EditModel.SparePartItems.Any())
+                            {
+                                @for (int index = 0; index < EditModel.SparePartItems.Count; index++)
+                                {
+                                    var sparePart = EditModel.SparePartItems[index];
+                                    var currentIndex = index;
+
+                                    <div class="spare-part-card">
+                                        <div class="card-header-mobile">
+                                            <h6>Spare Part #@(index + 1)</h6>
+                                            <button type="button"
+                                                    class="btn-remove-mobile"
+                                                    @onclick="() => RemoveSparePart(sparePart)"
+                                                    disabled="@isSubmitting">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <div class="card-body-mobile">
+                                            <div class="mobile-field">
+                                                <label>Spare Part</label>
+                                                <SfComboBox TValue="Guid?" TItem="SparePartObject"
+                                                            Placeholder="Select Spare Part"
+                                                            @bind-Value="sparePart.SparePartId"
+                                                            DataSource="@filteredSpareParts"
+                                                            AllowFiltering="true"
+                                                            AllowCustom="false"
+                                                            FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                                            PopupWidth="90%"
+                                                            Enabled="@(!isSubmitting)"
+                                                            CssClass="modern-combo">
+                                                    <ComboBoxEvents Filtering="OnFilteringSparePart" TValue="Guid?" TItem="SparePartObject"></ComboBoxEvents>
+                                                    <ComboBoxFieldSettings Value="Id" Text="ItemName"></ComboBoxFieldSettings>
+                                                    <ComboBoxTemplates TItem="SparePartObject">
+                                                        <ItemTemplate Context="sparePartItem">
+                                                            <div class="combo-item-mobile">
+                                                                <img src="@sparePartItem.PictureUrl"
+                                                                     alt="@sparePartItem.ItemName"
+                                                                     class="combo-item-image-mobile" />
+                                                                <div class="combo-item-details-mobile">
+                                                                    <strong>@sparePartItem.ItemName</strong>
+                                                                    <small>@sparePartItem.SerialNumber</small>
+                                                                    <!-- ✅ ADD MOBILE STOCK INDICATOR -->
+                                                                    <div class="stock-indicator-row" style="margin-top: 0.25rem;">
+                                                                        @{
+                                                                            var stockLevel = sparePartItem.Quantity;
+                                                                            var stockColor = GetStockColorForCombo(stockLevel);
+                                                                            var stockIcon = GetStockIconForCombo(stockLevel);
+                                                                            var stockText = GetStockTextForCombo(stockLevel);
+                                                                        }
+                                                                        <span class="stock-badge" style="background-color: @stockColor; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600;">
+                                                                            <i class="@stockIcon"></i> @stockLevel
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <button type="button"
+                                                                        class="btn-view-details-mobile"
+                                                                        @onclick="() => ShowFullDetails(sparePartItem)"
+                                                                        @onclick:stopPropagation="true">
+                                                                    <i class="fa fa-eye"></i>
+                                                                </button>
+                                                            </div>
+                                                        </ItemTemplate>
+                                                        <NoRecordsTemplate>
+                                                            @if (isSparePartLoading)
+                                                            {
+                                                                <div class="loading-state">
+                                                                    <span class="spinner-border spinner-border-sm"></span>
+                                                                    <span>Searching...</span>
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <div class="no-records">
+                                                                    <span>No results</span>
+                                                                </div>
+                                                            }
+                                                        </NoRecordsTemplate>
+                                                    </ComboBoxTemplates>
+                                                </SfComboBox>
+                                            </div>
+
+                                            <div class="mobile-row">
+                                                <div class="mobile-field">
+                                                    <label>Quantity</label>
+                                                    <InputNumber @bind-Value="sparePart.Quantity"
+                                                                 class="form-control modern-input"
+                                                                 disabled="@isSubmitting"
+                                                                 min="0" />
+                                                </div>
+
+                                                <div class="mobile-field">
+                                                    <label>Condition</label>
+                                                    <SfComboBox TValue="string" TItem="string"
+                                                                Placeholder="Select"
+                                                                @bind-Value="sparePart.Condition"
+                                                                DataSource="@_repairConditions"
+                                                                AllowFiltering="true"
+                                                                FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                                                Enabled="@(!isSubmitting)"
+                                                                CssClass="modern-combo">
+                                                    </SfComboBox>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="empty-state-mobile">
+                                    <i class="fas fa-inbox"></i>
+                                    <p>No spare parts added yet</p>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Add Button -->
+                        <button type="button"
+                                class="btn-add-spare"
+                                @onclick="AddSparePart"
+                                disabled="@isSubmitting">
+                            <i class="fas fa-plus"></i>
+                            <span>Add Spare Part</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            <span><i class="fas fa-save"></i> Save Changes</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        }
+    </div>
+</div>
+<SfDialog IsModal="true" @bind-Visible="isSparePartDialogVisible" Width="600px" Header="Spare Part Details" ShowCloseIcon="true">
+    <div class="modal-content" style="padding: 20px;">
+        <div class="row">
+            <div class="col-md-4">
+                <img src="@selectedSparePartForView?.PictureUrl" alt="@selectedSparePartForView?.ItemName" 
+                     style="width: 100%; height: auto; border-radius: 8px; object-fit: cover;" />
+            </div>
+            <div class="col-md-8">
+                <div style="margin-top: 10px;">
+                    <p><strong>Item Name:</strong> @selectedSparePartForView?.ItemName</p>
+                    <p><strong>Serial Number:</strong> @selectedSparePartForView?.SerialNumber</p>
+                    <p><strong>Description:</strong></p>
+                    <p class="description-text">@selectedSparePartForView?.Description</p>
+                    <p><strong>Use For:</strong> @selectedSparePartForView?.UseFor</p>
+                </div>
+                <div style="margin-top: 20px;">
+                    <button type="button" class="btn btn-primary" @onclick="CloseSparePartDialog">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</SfDialog>
+
+@code {
+    [Parameter] public bool ShowModal { get; set; }
+    [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
+    [Parameter] public RepairServices ServiceToEdit { get; set; }
+    [Parameter] public EventCallback OnServiceUpdated { get; set; }
+
+    private RepairServiceEditModel EditModel { get; set; }
+    private List<ServiceType> serviceTypes = new();
+    private List<ServicePriority> servicePriorities = new();
+    private List<ServiceStatus> serviceStatuses = new();
+    private bool isSubmitting = false;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private string warningMessage = string.Empty;
+
+    private List<SparePartObject> filteredSpareParts = new();
+    private bool isSparePartLoading = false;
+    private System.Threading.Timer _sparePartSearchDebounceTimer;
+    private List<string> _repairConditions = new List<string> { "Fix", "Replace", "Free" };
+    private bool isSparePartDialogVisible = false;
+    private SparePartObject selectedSparePartForView;
+    
+    // Customer search variables
+    private string customerSearchTerm = string.Empty;
+    private bool IsCustomerDropdownVisible { get; set; } = false;
+    private IEnumerable<Customer> _customers = new List<Customer>();
+    private System.Threading.Timer _customerSearchDebounceTimer;
+
+    private IEnumerable<Customer> FilteredCustomers => _customers;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ShowModal)
+        {
+            if (ServiceToEdit == null)
+            {
+                errorMessage = "No service selected for editing.";
+                return;
+            }
+
+            await LoadDropdownData();
+            await LoadInitialCustomers();
+            // ✅ DON'T load spare parts here - only load when needed
+            await LoadEditModel();
+        }
+    }
+
+    private async Task LoadDropdownData()
+    {
+        try
+        {
+            serviceTypes = (await RepairItemService.GetServiceTypesAsync())?.ToList() ?? new();
+            servicePriorities = (await RepairItemService.GetServicePrioritiesAsync())?.ToList() ?? new();
+            serviceStatuses = (await RepairItemService.GetServiceStatusesAsync())?.ToList() ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dropdown data: {ex.Message}");
+            errorMessage = "Failed to load form options. Please try again.";
+        }
+    }
+
+    private async Task LoadInitialCustomers()
+    {
+        try
+        {
+            var customerResult = await CustomerService.GetCustomersPaginatedAsync(pageNumber: 1, pageSize: 10);
+            _customers = customerResult.Data;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading initial customers: {ex.Message}");
+        }
+    }
+
+    private async Task LoadEditModel()
+    {
+        try
+        {
+            errorMessage = string.Empty;
+            warningMessage = string.Empty;
+
+            if (ServiceToEdit == null)
+            {
+                errorMessage = "Service data is missing.";
+                Console.WriteLine("❌ ServiceToEdit is null in LoadEditModel");
+                return;
+            }
+
+            Console.WriteLine($"🔍 Loading service: {ServiceToEdit.Id}");
+
+            var fullService = await RepairItemService.GetRepairServiceByIdAsync(ServiceToEdit.Id);
+
+            if (fullService == null)
+            {
+                errorMessage = "Service not found in database.";
+                Console.WriteLine($"❌ GetRepairServiceByIdAsync returned null for ID: {ServiceToEdit.Id}");
+                return;
+            }
+
+            Console.WriteLine($"✅ Service loaded: {fullService.reportNo}");
+
+            var customerId = fullService.CustomerId;
+            var itemId = fullService.itemId;
+
+            if (customerId == Guid.Empty && !string.IsNullOrWhiteSpace(fullService.CompanyName))
+            {
+                customerId = await ResolveCustomerId(fullService.CompanyName.Trim());
+            }
+
+            if (itemId == Guid.Empty && !string.IsNullOrWhiteSpace(fullService.serialNumber))
+            {
+                itemId = await ResolveItemId(fullService.serialNumber.Trim());
+            }
+
+            var warnings = new List<string>();
+            if (customerId == Guid.Empty)
+            {
+                warnings.Add($"Customer '{fullService.CompanyName}' not found");
+            }
+            if (itemId == Guid.Empty)
+            {
+                warnings.Add($"Item '{fullService.serialNumber}' not found");
+            }
+
+            if (warnings.Any())
+            {
+                warningMessage = $"{string.Join(". ", warnings)}. The update may fail if these IDs are required.";
+            }
+
+            EditModel = new RepairServiceEditModel
+            {
+                Id = fullService.Id,
+                CustomerId = customerId,
+                CompanyName = fullService.CompanyName,
+                Address = fullService.Address,
+                ContactName = fullService.ContactName,
+                PhoneNumber = fullService.PhoneNumber,
+                ItemId = itemId,
+                ReportNo = fullService.reportNo,
+                ServiceDate = fullService.ServiceDate,
+                CustomerRequest = fullService.CustomerRequest,
+                Inspection = fullService.Inspection,
+                Solution = fullService.Solution,
+                ServiceLocation = fullService.ServiceLocation,
+                HasContract = fullService.hasContract,
+                ServiceTypeId = serviceTypes.FirstOrDefault(t => t.Name == fullService.ServiceType)?.Id ?? 0,
+                ServicePriorityId = servicePriorities.FirstOrDefault(p => p.Name == fullService.ServicePriority)?.Id ?? 0,
+                StatusId = serviceStatuses.FirstOrDefault(s => s.Name == fullService.Status)?.Id ?? 0,
+                SparePartItems = fullService.SparePartItems?.Select(sp => new SparePartEditModel
+                {
+                    Id = sp.Id, // ✅ ADD THIS LINE
+                    SparePartId = sp.SparePartId,
+                    Description = sp.Description ?? string.Empty,
+                    Quantity = sp.Quantity,
+                    Condition = sp.Condition ?? string.Empty
+                }).ToList() ?? new()
+            };
+
+            // ✅ OPTIMIZED: Only load spare parts that are already selected
+            await LoadSelectedSparePartsOnly(EditModel.SparePartItems);
+
+            customerSearchTerm = fullService.CompanyName ?? string.Empty;
+
+            Console.WriteLine($"✅ EditModel ready - CustomerId: {EditModel.CustomerId}, ItemId: {EditModel.ItemId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error: {ex.Message}");
+            errorMessage = $"Failed to load service: {ex.Message}";
+        }
+    }
+
+    // ✅ NEW: Only load selected spare parts by their IDs
+    private async Task LoadSelectedSparePartsOnly(List<SparePartEditModel> spareParts)
+    {
+        try
+        {
+            filteredSpareParts.Clear();
+
+            if (spareParts == null || !spareParts.Any())
+            {
+                Console.WriteLine("📦 No spare parts to load");
+                return;
+            }
+
+            var sparePartIds = spareParts
+                .Where(sp => sp.SparePartId.HasValue && sp.SparePartId.Value != Guid.Empty)
+                .Select(sp => sp.SparePartId.Value)
+                .Distinct()
+                .ToList();
+
+            if (!sparePartIds.Any())
+            {
+                Console.WriteLine("📦 No valid spare part IDs found");
+                return;
+            }
+
+            Console.WriteLine($"🔍 Loading {sparePartIds.Count} spare parts by ID...");
+
+            // ✅ Load only the specific spare parts by ID
+            foreach (var sparePartId in sparePartIds)
+            {
+                try
+                {
+                    var sparePart = await SparePartService.GetSparePartByIdAsync(sparePartId);
+                    if (sparePart != null)
+                    {
+                        filteredSpareParts.Add(sparePart);
+                        Console.WriteLine($"✅ Loaded spare part: {sparePart.ItemName} (ID: {sparePartId})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"⚠️ Spare part not found: {sparePartId}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Error loading spare part {sparePartId}: {ex.Message}");
+                }
+            }
+
+            Console.WriteLine($"✅ Total spare parts loaded: {filteredSpareParts.Count}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error in LoadSelectedSparePartsOnly: {ex.Message}");
+            filteredSpareParts.Clear();
+        }
+    }
+
+    private void AddSparePart()
+    {
+        if (EditModel.SparePartItems == null)
+            EditModel.SparePartItems = new();
+
+        EditModel.SparePartItems.Add(new SparePartEditModel
+        {
+            Id = Guid.Empty, // ✅ ADD THIS - Indicates new item
+            SparePartId = null,
+            Quantity = 0,
+            Description = string.Empty,
+            Condition = string.Empty
+        });
+
+        StateHasChanged();
+    }
+
+    private void RemoveSparePart(SparePartEditModel sparePart)
+    {
+        EditModel.SparePartItems?.Remove(sparePart);
+    }
+
+    // ✅ OPTIMIZED: Only search when user types
+    private async Task OnFilteringSparePart(Syncfusion.Blazor.DropDowns.FilteringEventArgs args)
+    {
+        args.PreventDefaultAction = true;
+
+        _sparePartSearchDebounceTimer?.Dispose();
+
+        // ✅ Show loading state
+        isSparePartLoading = true;
+        StateHasChanged();
+
+        // ✅ If search is empty, only show currently selected items
+        if (string.IsNullOrWhiteSpace(args.Text))
+        {
+            isSparePartLoading = false;
+            // Keep currently selected items in the list
+            await EnsureSelectedSparePartsInFilteredList();
+            StateHasChanged();
+            return;
+        }
+
+        // ✅ Debounce: wait 300ms before searching
+        _sparePartSearchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await InvokeAsync(async () =>
+                {
+                    Console.WriteLine($"🔍 Searching spare parts: '{args.Text}'");
+
+                    // ✅ Search with the user's term
+                    var searchResult = await SparePartService.SearchSparePartsAsync(
+                        pageNumber: 1,
+                        pageSize: 50, // Limit results to 50
+                        searchTerm: args.Text.Trim()
+                    );
+
+                    Console.WriteLine($"📊 Search returned {searchResult.Items.Count} results");
+
+                    filteredSpareParts = searchResult.Items.ToList();
+
+                    // ✅ Ensure selected items remain in the list
+                    await EnsureSelectedSparePartsInFilteredList();
+
+                    isSparePartLoading = false;
+                    StateHasChanged();
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error in spare part search: {ex.Message}");
+                isSparePartLoading = false;
+                StateHasChanged();
+            }
+        }, null, 300, Timeout.Infinite);
+    }
+
+    // ✅ Ensure selected spare parts are always in the dropdown
+    private async Task EnsureSelectedSparePartsInFilteredList()
+    {
+        if (EditModel.SparePartItems == null || !EditModel.SparePartItems.Any())
+            return;
+
+        var selectedIds = EditModel.SparePartItems
+            .Where(sp => sp.SparePartId.HasValue && sp.SparePartId.Value != Guid.Empty)
+            .Select(sp => sp.SparePartId.Value)
+            .ToList();
+
+        foreach (var selectedId in selectedIds)
+        {
+            // ✅ If selected item is not in filtered list, fetch it
+            if (!filteredSpareParts.Any(sp => sp.Id == selectedId))
+            {
+                try
+                {
+                    Console.WriteLine($"🔍 Fetching missing selected spare part: {selectedId}");
+                    var selectedSparePart = await SparePartService.GetSparePartByIdAsync(selectedId);
+                    if (selectedSparePart != null)
+                    {
+                        filteredSpareParts.Insert(0, selectedSparePart);
+                        Console.WriteLine($"✅ Added selected spare part to dropdown: {selectedSparePart.ItemName}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Error fetching spare part {selectedId}: {ex.Message}");
+                }
+            }
+        }
+    }
+    private async Task ApplyStatusServiceAsync(int statusId, Guid serviceId, string reportNo)
+    {
+        var statusName = serviceStatuses.FirstOrDefault(s => s.Id == statusId)?.Name ?? string.Empty;
+        var normalizedStatus = statusName.Trim().ToLower();
+
+        Console.WriteLine($"🔄 Applying status service for: '{statusName}' (ID: {statusId})");
+
+        // ✅ Get current user ID (same as await-customer Save() method)
+        Guid currentUserId = Guid.Empty;
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity.IsAuthenticated)
+            {
+                var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out Guid parsedGuid))
+                {
+                    currentUserId = parsedGuid;
+                    Console.WriteLine($"✅ Current user ID: {currentUserId}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Could not get user ID: {ex.Message}");
+        }
+
+        try
+        {
+            switch (normalizedStatus)
+            {
+                case "awaiting customer confirmation":
+                case "awaiting customer confirm":
+                    await AwaitingCustomerConfirmService.SetAwaitingCustomerConfirmAsync(
+                        new AwaitingCustomerConfirmRequest
+                        {
+                            Id = serviceId,                              // ✅ Use Id (not ServiceId)
+                            SetAwaitingCustomerConfirmBy = currentUserId // ✅ Set who confirmed
+                        });
+                    Console.WriteLine("✅ AwaitingCustomerConfirm applied");
+                    break;
+
+                case "customer rejected":
+                    await CustomerRejectedService.SetCustomerRejectedAsync(
+                        new CustomerRejectedRequest
+                        {
+                            Id = serviceId,
+                            SetCustomerRejectedBy = currentUserId
+                        });
+                    Console.WriteLine("✅ CustomerRejected applied");
+                    break;
+
+                case "awaiting spare part":
+                case "awaiting sparepart":
+                    await AwaitingSparePartService.SetAwaitingSparePartAsync(
+                        new AwaitingSparePartRequest
+                        {
+                            Id = serviceId,
+                            SetAwaitingSparepartBy = currentUserId
+                        });
+                    Console.WriteLine("✅ AwaitingSparePart applied");
+                    break;
+
+                case "third party repair":
+                    await ThirdPartyRepairService.SetThirdPartyRepairAsync(
+                        new ThirdPartyRepairRequest
+                        {
+                            Id = serviceId,
+                            ThirdPartyRepairBy = currentUserId
+                        });
+                    Console.WriteLine("✅ ThirdPartyRepair applied");
+                    break;
+
+                case "unrepairable":
+                    await UnrepairableService.SetUnrepairableAsync(
+                        new UnrepairableRequest
+                        {
+                            Id = serviceId,
+                            SetUnrepairableBy = currentUserId
+                        });
+                    Console.WriteLine("✅ Unrepairable applied");
+                    break;
+
+                default:
+                    Console.WriteLine($"ℹ️ No BIS service mapped for status: '{statusName}' — skipping");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Status service error for '{statusName}': {ex.Message}");
+            throw;
+        }
+    }
+    private void ShowFullDetails(SparePartObject sparePart)
+    {
+        selectedSparePartForView = sparePart;
+        isSparePartDialogVisible = true;
+    }
+
+    private void CloseSparePartDialog()
+    {
+        isSparePartDialogVisible = false;
+    }
+
+    // Customer search methods (keep as is)
+    private void OnCustomerSearchInput(ChangeEventArgs e)
+    {
+        customerSearchTerm = e.Value.ToString();
+        _customerSearchDebounceTimer?.Dispose();
+
+        if (string.IsNullOrWhiteSpace(customerSearchTerm) || customerSearchTerm.Length < 2)
+        {
+            _ = Task.Run(async () =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    var initialResult = await CustomerService.GetCustomersPaginatedAsync(pageNumber: 1, pageSize: 10);
+                    _customers = initialResult.Data;
+                    IsCustomerDropdownVisible = false;
+                    StateHasChanged();
+                });
+            });
+            return;
+        }
+
+        _customerSearchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await InvokeAsync(async () =>
+                {
+                    var searchResult = await CustomerService.GetCustomersPaginatedAsync(
+                        pageNumber: 1,
+                        pageSize: 20,
+                        searchTerm: customerSearchTerm
+                    );
+
+                    _customers = searchResult.Data;
+                    IsCustomerDropdownVisible = _customers.Any();
+                    StateHasChanged();
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in customer search: {ex.Message}");
+            }
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private void OnCustomerInputClick()
+    {
+        IsCustomerDropdownVisible = true;
+    }
+
+    private void OnCustomerInputBlur()
+    {
+        Task.Delay(200).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                IsCustomerDropdownVisible = false;
+                StateHasChanged();
+            });
+        });
+    }
+
+    private void CloseCustomerDropdown()
+    {
+        IsCustomerDropdownVisible = false;
+        StateHasChanged();
+    }
+
+    private void OnCustomerSelect(Customer customer)
+    {
+        customerSearchTerm = customer.CompanyName;
+        EditModel.CompanyName = customer.CompanyName;
+        EditModel.Address = customer.Address;
+        EditModel.ContactName = customer.ContactName;
+        EditModel.PhoneNumber = customer.PhoneNumber;
+        EditModel.CustomerId = customer.Id;
+        IsCustomerDropdownVisible = false;
+        StateHasChanged();
+    }
+
+    private async Task<Guid> ResolveCustomerId(string companyName)
+    {
+        try
+        {
+            Console.WriteLine($"🔍 Searching for customer: '{companyName}'");
+
+            var searchResult = await CustomerService.GetCustomersPaginatedAsync(
+                pageNumber: 1,
+                pageSize: 100,
+                searchTerm: companyName,
+                isActive: null
+            );
+
+            if (searchResult?.Data != null && searchResult.Data.Any())
+            {
+                var customer = searchResult.Data.FirstOrDefault(c =>
+                    c.CompanyName?.Trim().Equals(companyName.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+
+                if (customer != null)
+                {
+                    Console.WriteLine($"✅ Found exact match: {customer.Id}");
+                    return customer.Id;
+                }
+
+                customer = searchResult.Data.FirstOrDefault(c =>
+                    c.CompanyName?.Trim().Contains(companyName.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+
+                if (customer != null)
+                {
+                    Console.WriteLine($"✅ Found partial match: {customer.Id}");
+                    return customer.Id;
+                }
+            }
+
+            Console.WriteLine($"❌ Customer not found");
+            return Guid.Empty;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Customer lookup error: {ex.Message}");
+            return Guid.Empty;
+        }
+    }
+
+    private async Task<Guid> ResolveItemId(string serialNumber)
+    {
+        try
+        {
+            Console.WriteLine($"🔍 Searching for item: '{serialNumber}'");
+
+            var searchResult = await ItemService.SearchItemsAsync(
+                pageNumber: 1,
+                pageSize: 100,
+                searchTerm: serialNumber,
+                sortBy: "SerialNumber",
+                sortDescending: false
+            );
+
+            if (searchResult?.Items != null && searchResult.Items.Any())
+            {
+                var item = searchResult.Items.FirstOrDefault(i =>
+                    i.SerialNumber?.Trim().Equals(serialNumber.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+
+                if (item != null)
+                {
+                    Console.WriteLine($"✅ Found exact match: {item.Id}");
+                    return item.Id;
+                }
+            }
+            Console.WriteLine($"❌ Item not found");
+            return Guid.Empty;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Item lookup error: {ex.Message}");
+            return Guid.Empty;
+        }
+    }
+
+    // ✅ REPLACE THE EXISTING HandleSubmit METHOD IN EditRepairServiceModal.razor WITH THIS:
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        successMessage = string.Empty;
+        errorMessage = string.Empty;
+        warningMessage = string.Empty;
+
+        try
+        {
+            Console.WriteLine("=== SUBMITTING REPAIR SERVICE UPDATE ===");
+
+            // ✅ VALIDATION
+            if (EditModel.ServiceTypeId == 0)
+            {
+                errorMessage = "Please select a Service Type.";
+                return;
+            }
+
+            if (EditModel.ServicePriorityId == 0)
+            {
+                errorMessage = "Please select a Service Priority.";
+                return;
+            }
+
+            if (EditModel.StatusId == 0)
+            {
+                errorMessage = "Please select a Status.";
+                return;
+            }
+
+            // =========================================================
+            // ✅ CALL 1: PUT /api/technicalservices
+            // Updates: companyName, customerId, address, contactName,
+            //          phoneNumber, statusId, servicePriorityId,
+            //          serviceLocation, serviceDate, customerRequest,
+            //          hasContract, reportNo, itemId, spareparts
+            // =========================================================
+            var fullServiceUpdate = new RepairServices
+            {
+                Id = EditModel.Id,
+                CustomerId = EditModel.CustomerId,
+                CompanyName = EditModel.CompanyName,
+                Address = EditModel.Address,
+                ContactName = EditModel.ContactName,
+                PhoneNumber = EditModel.PhoneNumber,
+                itemId = EditModel.ItemId,
+                reportNo = EditModel.ReportNo,
+                ServiceDate = EditModel.ServiceDate,
+                CustomerRequest = EditModel.CustomerRequest,
+                Inspection = EditModel.Inspection,
+                Solution = EditModel.Solution,
+                ServiceLocation = EditModel.ServiceLocation,
+                ServiceTypeId = EditModel.ServiceTypeId,        // ✅ int? in RepairServices
+                ServicePriorityId = EditModel.ServicePriorityId, // ✅ int in RepairServices
+                StatusId = EditModel.StatusId,                   // ✅ int in RepairServices
+                hasContract = EditModel.HasContract,
+                SparePartItems = EditModel.SparePartItems?
+         .Where(sp => sp.SparePartId.HasValue && sp.SparePartId.Value != Guid.Empty)
+         .Select(sp => new SparePartItem
+         {
+             Id = sp.Id,
+             SparePartId = sp.SparePartId.Value,
+             Description = sp.Description ?? string.Empty,
+             Quantity = sp.Quantity,
+             Condition = sp.Condition ?? string.Empty
+         }).ToList() ?? new List<SparePartItem>()
+            };
+
+            Console.WriteLine($"📡 Calling UpdateRepairServiceAsync for service: {EditModel.Id}");
+            await RepairItemService.UpdateRepairServiceAsync(fullServiceUpdate);
+            Console.WriteLine("✅ Full service update successful (customer/status/priority saved)");
+
+            // =========================================================
+            // ✅ CALL 2: POST /api/inspectitem
+            // Updates: inspection, solution, serviceTypeId, spareparts
+            // (also triggers stock deduction logic on the backend)
+            // =========================================================
+            var inspectRequest = new InspectItemRequest
+            {
+                Id = EditModel.Id,
+                Inspection = EditModel.Inspection,
+                Solution = EditModel.Solution,
+                ServiceTypeId = EditModel.ServiceTypeId
+            };
+
+            if (EditModel.SparePartItems != null && EditModel.SparePartItems.Any())
+            {
+                inspectRequest.SpareParts = EditModel.SparePartItems
+                    .Where(sp => sp.SparePartId.HasValue && sp.SparePartId.Value != Guid.Empty)
+                    .Select(sp => new SparePart
+                    {
+                        Id = sp.Id,
+                        SparePartId = sp.SparePartId.Value,
+                        Description = sp.Description ?? string.Empty,
+                        Quantity = sp.Quantity,
+                        Condition = sp.Condition ?? string.Empty,
+                        ServiceId = EditModel.Id
+                    })
+                    .ToList();
+
+                Console.WriteLine($"📦 Submitting {inspectRequest.SpareParts.Count} spare parts to inspect API:");
+                foreach (var sp in inspectRequest.SpareParts)
+                {
+                    Console.WriteLine($"   - Item ID: {sp.Id}, Spare Part ID: {sp.SparePartId}, Qty: {sp.Quantity}");
+                }
+            }
+            else
+            {
+                inspectRequest.SpareParts = new List<SparePart>();
+            }
+
+            Console.WriteLine($"📡 Calling UpdateInspectItemAsync for service: {EditModel.Id}");
+            await InspectItemService.UpdateInspectItemAsync(EditModel.Id, inspectRequest);
+            Console.WriteLine("✅ Inspect update successful - stock triggers executed");
+
+            // =========================================================
+            // ✅ CALL 3: Apply status-specific BIS service
+            // =========================================================
+            if (EditModel.StatusId > 0)
+            {
+                await ApplyStatusServiceAsync(EditModel.StatusId, EditModel.Id, EditModel.ReportNo);
+            }
+
+            // ✅ IMMEDIATE UI FEEDBACK
+            successMessage = "Service updated successfully!";
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Customization",
+                Title = "Success",
+                Text = "Service updated successfully",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Success
+            });
+
+            await Task.Delay(1500);
+
+            // ✅ BACKGROUND TASKS
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    if (!string.IsNullOrEmpty(EditModel.ReportNo))
+                    {
+                        await StateManagementAction.UpdateNotificationVisibility(EditModel.ReportNo, false);
+                        Console.WriteLine("✅ Notification visibility updated");
+                    }
+
+                    await OnServiceUpdated.InvokeAsync();
+                    Console.WriteLine("✅ Parent grid refreshed");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Background task error: {ex.Message}");
+                }
+            });
+
+            // ✅ CLOSE MODAL
+            await CloseModal();
+        }
+        catch (HttpRequestException httpEx)
+        {
+            var fullError = httpEx.Message;
+            Console.WriteLine($"❌ HTTP Error: {fullError}");
+
+            string displayMessage = "An error occurred while saving.";
+
+            try
+            {
+                if (fullError.Contains("Insufficient stock"))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        fullError,
+                        @"Insufficient stock for: ([^.]+)\.\s*Available: (\d+),\s*Required: (\d+)"
+                    );
+
+                    if (match.Success)
+                    {
+                        displayMessage = $"Insufficient stock for: {match.Groups[1].Value}. " +
+                                         $"Available: {match.Groups[2].Value}, Required: {match.Groups[3].Value}";
+                    }
+                    else
+                    {
+                        var lines = fullError.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        var stockLine = lines.FirstOrDefault(l => l.Contains("Insufficient stock") && !l.Contains("Exception"));
+                        displayMessage = stockLine?.Trim() ?? "Insufficient stock. Please check inventory.";
+                    }
+                }
+                else if (fullError.Contains("status") || fullError.Contains("Status"))
+                {
+                    displayMessage = $"Failed to apply status: {fullError}";
+                }
+            }
+            catch (Exception parseEx)
+            {
+                Console.WriteLine($"⚠️ Parse error: {parseEx.Message}");
+            }
+
+            errorMessage = displayMessage;
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = displayMessage,
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Save error: {ex.Message}");
+            errorMessage = $"Update failed: {ex.Message}";
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = $"Failed to save: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CloseModal()
+    {
+        ShowModal = false;
+        successMessage = string.Empty;
+        errorMessage = string.Empty;
+        warningMessage = string.Empty;
+        customerSearchTerm = string.Empty;
+        IsCustomerDropdownVisible = false;
+        filteredSpareParts.Clear(); // ✅ Clear spare parts when closing
+        _customerSearchDebounceTimer?.Dispose();
+        _sparePartSearchDebounceTimer?.Dispose();
+        await ShowModalChanged.InvokeAsync(false);
+    }
+    // ✅ ADD THESE HELPER METHODS FOR STOCK DISPLAY (add at the end of your @code block)
+    private string GetStockColorForCombo(int quantity)
+    {
+        if (quantity <= 0) return "#dc3545"; // Red - Out of stock
+        if (quantity <= 5) return "#ff6b6b";  // Light Red - Critical
+        if (quantity <= 10) return "#ffc107"; // Yellow - Low
+        return "#28a745"; // Green - Good
+    }
+
+    private string GetStockIconForCombo(int quantity)
+    {
+        if (quantity <= 0) return "fas fa-exclamation-triangle";
+        if (quantity <= 5) return "fas fa-exclamation-circle";
+        if (quantity <= 10) return "fas fa-info-circle";
+        return "fas fa-check-circle";
+    }
+
+    private string GetStockTextForCombo(int quantity)
+    {
+        if (quantity <= 0) return "OUT OF STOCK";
+        if (quantity <= 5) return "CRITICAL";
+        if (quantity <= 10) return "LOW STOCK";
+        return "IN STOCK";
+    }
+    public void Dispose()
+    {
+        _customerSearchDebounceTimer?.Dispose();
+        _sparePartSearchDebounceTimer?.Dispose();
+    }
+
+    public class RepairServiceEditModel
+    {
+        public Guid Id { get; set; }
+        public Guid CustomerId { get; set; }
+        public string CompanyName { get; set; }
+        public string Address { get; set; }
+        public string ContactName { get; set; }
+        public string PhoneNumber { get; set; }
+        public Guid ItemId { get; set; }
+        public string ReportNo { get; set; }
+        public DateTime ServiceDate { get; set; } = DateTime.Now;
+        public string CustomerRequest { get; set; }
+        public string Inspection { get; set; }
+        public string Solution { get; set; }
+        public string ServiceLocation { get; set; }
+        public int ServiceTypeId { get; set; }
+        public int ServicePriorityId { get; set; }
+        public int StatusId { get; set; }
+        public bool HasContract { get; set; }
+        public List<SparePartEditModel> SparePartItems { get; set; } = new();
+    }
+
+    public class SparePartEditModel
+    {
+        public Guid Id { get; set; } = Guid.Empty; // ✅ ADD THIS
+        public Guid? SparePartId { get; set; }
+        public string Description { get; set; }
+        public int Quantity { get; set; }
+        public string Condition { get; set; }
+    }
+}

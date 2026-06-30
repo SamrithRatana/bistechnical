@@ -1,0 +1,194 @@
+﻿/* Default Styles (Desktop view) */
+.card {
+    background-color: #fff;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    padding: 20px;
+    margin-bottom: 5px; /* Further reduced margin between cards */
+}
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    }
+
+.numbers p {
+    color: #6c757d;
+    font-size: 1rem;
+    margin: 0;
+    font-weight: 500;
+}
+
+.numbers h5 {
+    font-size: 1.5rem;
+    color: #333;
+    margin: 0.25rem 0;
+}
+
+.icon-shape {
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.text-primary {
+    color: #007bff;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+/* Additional Spacing and Padding */
+.mb-0 {
+    margin-bottom: 0 !important;
+}
+
+.font-weight-bold {
+    font-weight: 600;
+}
+
+.text-sm {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Rounded and Clean Typography */
+.rounded-md {
+    border-radius: 8px;
+}
+
+.rounded-lg {
+    border-radius: 12px;
+}
+
+
+.repair-grid {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-container {
+    display: flex;
+    justify-content: flex-end; 
+    margin-bottom: 10px; 
+}
+
+.filter-select {
+    width: 100px; 
+    padding: 5px;
+    font-size: 14px;
+}
+
+.status-badge, .status-gif {
+    display: inline-block;
+    vertical-align: middle;
+}
+.status-badge {
+    font-size: 0.675rem;
+    padding: 5px 10px;
+}
+
+.status-gif {
+    width: 36px; 
+    height: 36px;
+    margin-left: 5px;
+}
+
+@media (max-width: 768px) {
+    .card {
+        padding: 8px; 
+        height: 70px;
+        min-height: 70px;
+        display: flex;
+        align-items: center; 
+        justify-content: space-between; 
+        margin-bottom: 3px; 
+    }
+
+
+    .numbers {
+        display: flex;
+        flex-direction: row; 
+        justify-content: space-between; 
+        align-items: center;
+    }
+
+        .numbers p {
+            font-size: 1rem; 
+            margin: 0;
+            font-weight: bold;
+            color: #6c757d;
+        }
+
+        .numbers h5 {
+            font-size: 1rem; /* Smaller font size for value */
+            margin: 0;
+            color: #333;
+            font-weight: bold;
+        }
+
+    .icon-shape {
+        background: linear-gradient(135deg, #1FA9D3 0%, #00c6ff 100%);
+        border-radius: 50%;
+        width: 30px; /* Reduced icon size */
+        height: 30px; /* Reduced icon size */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+/* Make Report No smaller */
+.small-text {
+    font-size: 0.8rem;
+}
+
+/* Make the dialog content scrollable and fit mobile */
+.e-dialog .table-responsive {
+    max-height: 70vh; /* responsive to screen */
+    overflow-y: auto;
+}
+
+/* Custom table for better look */
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+    .custom-table thead {
+        background-color: #343a40; /* Dark header */
+        color: white;
+    }
+
+    .custom-table tbody tr:nth-child(even) {
+        background-color: #f9f9f9; /* Light gray for even rows */
+    }
+
+    .custom-table tbody tr:nth-child(odd) {
+        background-color: #ffffff; /* White for odd rows */
+    }
+
+    .custom-table td, .custom-table th {
+        padding: 0.75rem;
+        vertical-align: middle;
+    }
+
+/* Mobile responsiveness: reduce padding on small devices */
+@media (max-width: 576px) {
+    .custom-table td, .custom-table th {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+}

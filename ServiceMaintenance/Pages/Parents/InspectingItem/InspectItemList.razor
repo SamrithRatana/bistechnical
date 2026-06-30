@@ -1,0 +1,1878 @@
+﻿@page "/inspect-item"
+@page "/inspect-item/{ReportNo}"
+
+@using ServiceMaintenance.Models
+@using Microsoft.AspNetCore.SignalR.Client
+@using ServiceMaintenance.Services.Filters.GlobalSecurity
+@using System.Timers
+@using ServiceMaintenance.Pages.Reports
+@using ServiceMaintenance.Services
+@inject RepairItemService RepairItemService
+@inject ServiceSparePart SparePartService
+@inject InspectItemService InspectItemService
+@inject AwaitingCustomerConfirmService AwaitingCustomerConfirmService
+@inject AwaitingSparePartService AwaitingSparePartService
+@inject JwtSessionService JwtSessionService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject StateManagementAction StateManagementAction
+@inject GlobalUserService GlobalUserCache
+@inject IToastNotificationService ToastNotificationService
+@inject CacheHelper Cache
+@inject MessageQueueHelper MQ
+
+<DxToastProvider Name="Customization"
+                 MaxToastCount="5"
+                 HorizontalAlignment="HorizontalAlignment.Right"
+                 VerticalAlignment="VerticalEdge.Top"
+                 AnimationType="@Animation" />
+<DxToastProvider Name="Error"
+                 MaxToastCount="5"
+                 HorizontalAlignment="HorizontalAlignment.Right"
+                 VerticalAlignment="VerticalEdge.Top"
+                 AnimationType="@Animation" />
+
+<!-- Loading Overlay -->
+@if (isSaving)
+{
+    <div class="loading-overlay">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">
+                <h4>Processing Inspection...</h4>
+                <p>Please wait while we save your inspection data</p>
+                <div class="loading-progress">
+                    <div class="loading-bar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="card shadow-sm rounded-lg">
+    <div class="card-body">
+        <DxToolbar ItemRenderStyleMode="ToolbarRenderStyleMode.Plain">
+
+            @if (CanCreate)
+            {
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextNew)]"
+                               Click="NewRepairService_Click"
+                               IconCssClass="far fa-file"
+                               CssClass="toolbar-item"
+                               Enabled="false" />
+            }
+
+            @if (CanEdit)
+            {
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextEdit)]"
+                               Click="EditRepairService_Click"
+                               IconCssClass="far fa-edit"
+                               CssClass="toolbar-item"
+                               Enabled="@isRowSelected" />
+            }
+
+            @if (CanDelete)
+            {
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextDelete)]"
+                               IconCssClass="fas fa-trash-alt"
+                               CssClass="toolbar-item"
+                               Enabled="false" />
+            }
+
+            @if (CanExport)
+            {
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextExport)]" IconCssClass="fas fa-download">
+                    <Items>
+                        <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextToExcel)]"
+                                       Click="ExportToExcel"
+                                       IconCssClass="fas fa-file-excel" />
+                        <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextToPdf)]"
+                                       Click="ExportToPdf"
+                                       IconCssClass="fas fa-file-pdf" />
+                    </Items>
+                </DxToolbarItem>
+            }
+
+            @if (CanPrint)
+            {
+                <DxToolbarItem Text="Print Report"
+                               Click="() => ShowReportPreview(_selectedRepairService)"
+                               CssClass="toolbar-item"
+                               IconCssClass="fas fa-print"
+                               Enabled="@isRowSelected" />
+            }
+
+            @if (CanView)
+            {
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextCheckList)]"
+                               Click="@ShowCheckListDialog"
+                               CssClass="toolbar-item"
+                               IconCssClass="fas fa-check-circle"
+                               Enabled="@isRowSelected" />
+            }
+
+        </DxToolbar>
+    </div>
+</div>
+
+<br />
+
+<SfMediaQuery @bind-ActiveBreakPoint="activeBreakpoint"></SfMediaQuery>
+@{
+    bool enableAdaptiveUIMode = false;
+    RowDirection renderingMode = RowDirection.Vertical;
+
+    if (activeBreakpoint == "Small")
+    {
+        enableAdaptiveUIMode = true;
+        renderingMode = RowDirection.Vertical;
+    }
+    else if (activeBreakpoint == "Medium")
+    {
+        enableAdaptiveUIMode = true;
+        renderingMode = RowDirection.Horizontal;
+    }
+    else
+    {
+        enableAdaptiveUIMode = false;
+    }
+}
+
+@if (CanAccess)
+{
+    @if (CanView)
+    {
+        <h2>@Loc[nameof(ResourceStrings.TextInspectingItemLists)]</h2>
+
+        <div style="margin-bottom: 15px; padding: 15px; background-color: #f9f9f9; border-radius: 4px;">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <SfTextBox @ref="ReceivedSearchBox"
+                           Placeholder="Search by Report No, Company, Serial Number..."
+                           ShowClearButton="true"
+                           Width="400px"
+                           @bind-Value="ReceivedSearchValue"
+                           Input="OnReceivedSearchInput">
+                </SfTextBox>
+                <SfButton Content="Search"
+                          CssClass="e-btn e-primary"
+                          IconCss="fas fa-search"
+                          OnClick="PerformReceivedSearch" />
+                <SfButton Content="Clear"
+                          CssClass="e-btn e-outline"
+                          IconCss="fas fa-times"
+                          OnClick="ClearReceivedSearch" />
+            </div>
+            @if (!string.IsNullOrEmpty(ReceivedSearchValue))
+            {
+                <div style="margin-top: 10px; color: #666; font-size: 14px;">
+                    <i class="fas fa-info-circle"></i>
+                    Searching for: <strong>@ReceivedSearchValue</strong>
+                </div>
+            }
+        </div>
+
+        <SfGrid @ref="MyGrid"
+                DataSource="@filteredRepairServices"
+                AllowPaging="true"
+                AllowSorting="true"
+                ShowColumnChooser="true"
+                AllowExcelExport="true"
+                AllowPdfExport="true"
+                AllowResizing="true"
+                AllowFiltering="true"
+                Height="400"
+                SelectionMode="GridSelectionMode.Single"
+                Toolbar=@ToolbarItems
+                EnableAdaptiveUI="@enableAdaptiveUIMode"
+                RowRenderingMode="@renderingMode"
+                AllowSelection="true">
+            <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+            <GridEvents TValue="RepairServices" RowSelected="@ReceivedRowSelectHandler"></GridEvents>
+            <GridPageSettings PageSize="10"></GridPageSettings>
+            <GridColumns>
+                <GridColumn Field="Id" HeaderText="Id" Width="150" Format="d" Visible="false" />
+                <GridColumn Field="reportNo" HeaderText="@Loc[nameof(ResourceStrings.Textref)]" Width="150" />
+                <GridColumn Field="ServiceDate" HeaderText="@Loc[nameof(ResourceStrings.TextReceiveDate)]" Width="150" Format="dd/MM/yyyy HH:mm tt" />
+                <GridColumn Field="CompanyName" HeaderText="@Loc[nameof(ResourceStrings.TextCompanyName)]" CustomAttributes="@(new Dictionary<string, object>() { { "class", "e-attr" } })" Width="200" />
+                <GridColumn Field="itemName" HeaderText="@Loc[nameof(ResourceStrings.TextItemName)]" Width="200" />
+                <GridColumn Field="serialNumber" HeaderText="@Loc[nameof(ResourceStrings.TextSerialNumber)]" Width="200" />
+                <GridColumn Field="CustomerRequest" HeaderText="@Loc[nameof(ResourceStrings.TextCustomerReq)]" Width="250" Visible="false" />
+                <GridColumn Field="ServiceLocation" HeaderText="@Loc[nameof(ResourceStrings.TextServiceLocation)]" Width="200" />
+                <GridColumn Field="Status" HeaderText="@Loc[nameof(ResourceStrings.TextStatus)]" Width="150">
+                    <Template>
+                        @{
+                            var item = context as RepairServices;
+                        }
+                        @(item.Status == "Inspecting" ? "កំពុងវិនិច្ឆ័យ" : item.Status)
+                    </Template>
+                </GridColumn>
+                <GridColumn HeaderText="@Loc[nameof(ResourceStrings.TextAction)]" IsFrozen="true" Freeze="FreezeDirection.Right" Width="200">
+                    <Template>
+                        @{
+                            var item = context as RepairServices;
+                            var username = GetUserNameById(item.createby);
+                        }
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>@username</span>
+                            <button class="material-btn accept-btn" @onclick="() => OnAcceptButtonClick(item)" disabled="@isSaving">
+                                <i class="fas fa-check"></i>
+                                <span>@Loc[nameof(ResourceStrings.TextAccept)]</span>
+                            </button>
+                        </div>
+                    </Template>
+                </GridColumn>
+            </GridColumns>
+        </SfGrid>
+
+        <!-- Pagination -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-top: 1px solid #ddd; margin-top: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="e-btn e-normal" @onclick="FirstPage" disabled="@(currentPage == 1)">
+                    <i class="fas fa-angle-double-left"></i> First
+                </button>
+                <button class="e-btn e-normal" @onclick="PreviousPage" disabled="@(currentPage == 1)">
+                    <i class="fas fa-angle-left"></i> Previous
+                </button>
+                <span style="padding: 0 15px; font-weight: 500;">
+                    Page @currentPage of @totalPages
+                </span>
+                <button class="e-btn e-normal" @onclick="NextPage" disabled="@(currentPage >= totalPages)">
+                    Next <i class="fas fa-angle-right"></i>
+                </button>
+                <button class="e-btn e-normal" @onclick="LastPage" disabled="@(currentPage >= totalPages)">
+                    Last <i class="fas fa-angle-double-right"></i>
+                </button>
+            </div>
+            <div style="color: #666;">
+                Showing @Math.Min((currentPage - 1) * pageSize + 1, totalItems) - @Math.Min(currentPage * pageSize, totalItems) of @totalItems items
+            </div>
+        </div>
+    }
+}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- EDIT DIALOG (Accept → Inspect)                        -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<SfDialog @ref="DialogEdit"
+          IsModal="true"
+          Width="1200px"
+          ShowCloseIcon="true"
+          Visible="@isEditDialogVisible">
+    <DialogTemplates>
+        <Header>
+            <div class="dialog-header" style="position: relative;">
+                <h2>@Loc[nameof(ResourceStrings.TextEditRepair)]</h2>
+            </div>
+        </Header>
+    </DialogTemplates>
+
+    @if (!string.IsNullOrEmpty(saveErrorMessage))
+    {
+        <div class="alert alert-warning" role="alert" style="margin: 1rem; padding: 1rem; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 0.25rem; color: #856404;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Warning:</strong>
+                <span>@saveErrorMessage</span>
+            </div>
+        </div>
+    }
+
+    <EditForm Model="@inspectItem" OnValidSubmit="Save">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="font" for="Inspection">@Loc[nameof(ResourceStrings.TextInspection)]</label>
+                <SfTextBox id="Inspection" @bind-Value="inspectItem.Inspection" class="form-control e-attr" Multiline="true" Enabled="@(!isSaving)" />
+            </div>
+            <div class="form-group">
+                <label class="font" for="Solution">@Loc[nameof(ResourceStrings.Textsolution)]</label>
+                <SfTextBox id="Solution" @bind-Value="inspectItem.Solution" class="form-control e-attr" Multiline="true" Enabled="@(!isSaving)" />
+            </div>
+            <div class="form-group">
+                <label class="font" for="ServiceType">@Loc[nameof(ResourceStrings.TextServiceType)]</label>
+                <SfDropDownList TValue="int?"
+                                TItem="ServiceType"
+                                @bind-Value="inspectItem.ServiceTypeId"
+                                DataSource="@_serviceTypes"
+                                Placeholder="Select Service Type"
+                                Enabled="@(!isSaving)"
+                                CssClass="form-control e-attr">
+                    <DropDownListFieldSettings Value="Id" Text="Name"></DropDownListFieldSettings>
+                    <DropDownListTemplates TItem="ServiceType">
+                        <ItemTemplate Context="serviceType">
+                            <span class="font">@GetLocalizedServiceTypeName(serviceType.Name)</span>
+                        </ItemTemplate>
+                        <ValueTemplate Context="serviceType">
+                            <span class="font">@GetLocalizedServiceTypeName(serviceType.Name)</span>
+                        </ValueTemplate>
+                    </DropDownListTemplates>
+                </SfDropDownList>
+            </div>
+        </div>
+
+        <hr />
+
+        <div class="form-group">
+            <div class="spare-parts-container">
+                <!-- Desktop Table View -->
+                <div class="table-responsive d-none d-lg-block">
+                    <table class="modern-table">
+                        <thead>
+                            <tr class="font">
+                                <th>@Loc[nameof(ResourceStrings.TextSparePart)]</th>
+                                <th class="text-center">@Loc[nameof(ResourceStrings.TextQty)]</th>
+                                <th class="text-center">@Loc[nameof(ResourceStrings.TextCondition)]</th>
+                                <th class="text-center">@Loc[nameof(ResourceStrings.TextAction)]</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (inspectItem.SpareParts != null && inspectItem.SpareParts.Any())
+                            {
+                                @for (int index = 0; index < inspectItem.SpareParts.Count; index++)
+                                {
+                                    var sparePart = inspectItem.SpareParts[index];
+                                    var currentIndex = index;
+                                    <tr class="table-row">
+                                        <td class="spare-part-cell">
+                                            <SfComboBox TValue="Guid" TItem="SparePartObject"
+                                                        Placeholder="Select Spare Part"
+                                                        @bind-Value="sparePart.SparePartId"
+                                                        DataSource="@filteredSpareParts"
+                                                        AllowFiltering="true"
+                                                        AllowCustom="false"
+                                                        FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                                        PopupWidth="500px"
+                                                        @onclick="@(() => OnComboBoxClick(currentIndex))"
+                                                        Enabled="@(!isSaving)"
+                                                        CssClass="modern-combo">
+                                                <ComboBoxEvents Filtering="OnFilteringSparePart" TValue="Guid" TItem="SparePartObject"></ComboBoxEvents>
+                                                <ComboBoxFieldSettings Value="Id" Text="ItemName"></ComboBoxFieldSettings>
+                                                <ComboBoxTemplates TItem="SparePartObject">
+                                                    <ItemTemplate Context="sparePartItem">
+                                                        <div class="combo-item">
+                                                            <img src="@sparePartItem.PictureUrl" alt="@sparePartItem.ItemName" class="combo-item-image" />
+                                                            <div class="combo-item-details">
+                                                                <div class="combo-item-header">
+                                                                    <strong class="item-name">@sparePartItem.ItemName</strong>
+                                                                    <span class="serial-number">@sparePartItem.SerialNumber</span>
+                                                                </div>
+                                                                <div class="combo-item-info">
+                                                                    <span>@sparePartItem.Description</span>
+                                                                    <span class="divider">|</span>
+                                                                    <span>Use: @sparePartItem.UseFor</span>
+                                                                </div>
+                                                                <div class="stock-indicator-row">
+                                                                    @{
+                                                                        var stockLevel = sparePartItem.Quantity;
+                                                                        var stockColor = GetStockColorForCombo(stockLevel);
+                                                                        var stockIcon = GetStockIconForCombo(stockLevel);
+                                                                        var stockText = GetStockTextForCombo(stockLevel);
+                                                                    }
+                                                                    <span class="stock-badge" style="background-color: @stockColor; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">
+                                                                        <i class="@stockIcon"></i> @stockText (@stockLevel available)
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <button type="button"
+                                                                    class="btn-view-details"
+                                                                    @onclick="() => ShowFullDetails(sparePartItem)"
+                                                                    @onclick:stopPropagation="true">
+                                                                <i class="fa fa-eye"></i>
+                                                            </button>
+                                                        </div>
+                                                    </ItemTemplate>
+                                                    <NoRecordsTemplate>
+                                                        @if (isSparePartLoading)
+                                                        {
+                                                            <div class="loading-state">
+                                                                <span class="spinner-border spinner-border-sm"></span>
+                                                                <span>Searching spare parts...</span>
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="no-records">
+                                                                <i class="fas fa-search"></i>
+                                                                <span>No matching spare parts found</span>
+                                                            </div>
+                                                        }
+                                                    </NoRecordsTemplate>
+                                                </ComboBoxTemplates>
+                                            </SfComboBox>
+                                        </td>
+                                        <td class="quantity-cell">
+                                            <InputNumber @bind-Value="sparePart.Quantity"
+                                                         class="form-control modern-input"
+                                                         disabled="@isSaving"
+                                                         min="1"
+                                                         @oninput="@(e => { if (int.TryParse(e.Value?.ToString(), out int v) && v < 1) sparePart.Quantity = 1; })" />
+                                        </td>
+                                        <td class="condition-cell">
+                                            <SfComboBox TValue="string" TItem="string"
+                                                        Placeholder="Select Condition"
+                                                        @bind-Value="sparePart.Condition"
+                                                        DataSource="@_repairConditions"
+                                                        AllowFiltering="true"
+                                                        @onclick="@(() => OnComboBoxClick2(currentIndex))"
+                                                        FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                                        Enabled="@(!isSaving)"
+                                                        CssClass="modern-combo">
+                                            </SfComboBox>
+                                        </td>
+                                        <td class="action-cell">
+                                            <button type="button"
+                                                    class="btn-remove"
+                                                    @onclick="() => RemoveSparePart(sparePart)"
+                                                    disabled="@isSaving"
+                                                    title="Remove spare part">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="4" class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>No spare parts added yet</p>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card View -->
+                <div class="d-block d-lg-none">
+                    @if (inspectItem.SpareParts != null && inspectItem.SpareParts.Any())
+                    {
+                        @for (int index = 0; index < inspectItem.SpareParts.Count; index++)
+                        {
+                            var sparePart = inspectItem.SpareParts[index];
+                            var currentIndex = index;
+                            <div class="spare-part-card">
+                                <div class="card-header-mobile">
+                                    <button type="button"
+                                            class="btn-remove-mobile"
+                                            @onclick="() => RemoveSparePart(sparePart)"
+                                            disabled="@isSaving">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="card-body-mobile">
+                                    <div class="mobile-field">
+                                        <label>@Loc[nameof(ResourceStrings.TextSparePart)]</label>
+                                        <SfComboBox TValue="Guid" TItem="SparePartObject"
+                                                    Placeholder="Select Spare Part"
+                                                    @bind-Value="sparePart.SparePartId"
+                                                    DataSource="@filteredSpareParts"
+                                                    AllowFiltering="true"
+                                                    AllowCustom="false"
+                                                    FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                                    PopupWidth="@(isXSmallScreen ? "95%" : "500px")"
+                                                    @onclick="@(() => OnComboBoxClick(currentIndex))"
+                                                    Enabled="@(!isSaving)"
+                                                    CssClass="modern-combo">
+                                            <ComboBoxEvents Filtering="OnFilteringSparePart" TValue="Guid" TItem="SparePartObject"></ComboBoxEvents>
+                                            <ComboBoxFieldSettings Value="Id" Text="ItemName"></ComboBoxFieldSettings>
+                                            <ComboBoxTemplates TItem="SparePartObject">
+                                                <ItemTemplate Context="sparePartItem">
+                                                    <div class="combo-item @(isXSmallScreen ? "combo-item-mobile" : "")">
+                                                        <img src="@sparePartItem.PictureUrl" alt="@sparePartItem.ItemName" class="combo-item-image" />
+                                                        <div class="combo-item-details">
+                                                            <div class="combo-item-header">
+                                                                <strong class="item-name">@sparePartItem.ItemName</strong>
+                                                                <span class="serial-number">@sparePartItem.SerialNumber</span>
+                                                            </div>
+                                                            <div class="combo-item-info">
+                                                                <span>@sparePartItem.Description</span>
+                                                                @if (!isXSmallScreen)
+                                                                {
+                                                                    <span class="divider">|</span>
+                                                                    <span>Use: @sparePartItem.UseFor</span>
+                                                                }
+                                                            </div>
+                                                            <div class="stock-indicator-row">
+                                                                @{
+                                                                    var stockLevel = sparePartItem.Quantity;
+                                                                    var stockColor = GetStockColorForCombo(stockLevel);
+                                                                    var stockIcon = GetStockIconForCombo(stockLevel);
+                                                                    var stockText = GetStockTextForCombo(stockLevel);
+                                                                }
+                                                                <span class="stock-badge" style="background-color: @stockColor; color: white;">
+                                                                    <i class="@stockIcon"></i>
+                                                                    @if (isXSmallScreen)
+                                                                    {
+                                                                        <span>@stockLevel</span>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span>@stockText (@stockLevel available)</span>
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        @if (!isXSmallScreen)
+                                                        {
+                                                            <button type="button"
+                                                                    class="btn-view-details"
+                                                                    @onclick="() => ShowFullDetails(sparePartItem)"
+                                                                    @onclick:stopPropagation="true">
+                                                                <i class="fa fa-eye"></i>
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                </ItemTemplate>
+                                                <NoRecordsTemplate>
+                                                    @if (isSparePartLoading)
+                                                    {
+                                                        <div class="loading-state">
+                                                            <span class="spinner-border spinner-border-sm"></span>
+                                                            <span>@(isXSmallScreen ? "Searching..." : "Searching spare parts...")</span>
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="no-records">
+                                                            <i class="fas fa-search"></i>
+                                                            <span>@(isXSmallScreen ? "No results" : "No matching spare parts found")</span>
+                                                        </div>
+                                                    }
+                                                </NoRecordsTemplate>
+                                            </ComboBoxTemplates>
+                                        </SfComboBox>
+                                    </div>
+                                    <div class="mobile-row">
+                                        <div class="mobile-field">
+                                            <label>@Loc[nameof(ResourceStrings.TextQty)]</label>
+                                            <InputNumber @bind-Value="sparePart.Quantity"
+                                                         class="form-control modern-input"
+                                                         disabled="@isSaving"
+                                                         min="1"
+                                                         @oninput="@(e => { if (int.TryParse(e.Value?.ToString(), out int v) && v < 1) sparePart.Quantity = 1; })" />
+                                        </div>
+                                        <div class="mobile-field">
+                                            <label>@Loc[nameof(ResourceStrings.TextCondition)]</label>
+                                            <SfComboBox TValue="string" TItem="string"
+                                                        Placeholder="Select"
+                                                        @bind-Value="sparePart.Condition"
+                                                        DataSource="@_repairConditions"
+                                                        AllowFiltering="true"
+                                                        @onclick="@(() => OnComboBoxClick2(currentIndex))"
+                                                        FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                                                        Enabled="@(!isSaving)"
+                                                        CssClass="modern-combo">
+                                            </SfComboBox>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="empty-state-mobile">
+                            <i class="fas fa-inbox"></i>
+                            <p>No spare parts added yet</p>
+                        </div>
+                    }
+                </div>
+
+                <button type="button"
+                        class="btn-add-spare"
+                        @onclick="AddSparePart"
+                        disabled="@isSaving">
+                    <i class="fas fa-plus"></i>
+                    <span>@Loc[nameof(ResourceStrings.TextAddSparePart)]</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="e-footer-content">
+            <SfButton type="submit" class="material-btn primary" disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Saving...</span>
+                }
+                else
+                {
+                    <i class="fas fa-save"></i>
+                    <span>@Loc[nameof(ResourceStrings.TextSave)]</span>
+                }
+            </SfButton>
+            <SfButton type="button" class="material-btn danger" @onclick="CancelEditDialog" disabled="@isSaving">
+                <i class="fas fa-times"></i>
+                <span>@Loc[nameof(ResourceStrings.TextDecline)]</span>
+            </SfButton>
+        </div>
+    </EditForm>
+</SfDialog>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SPARE PART DETAILS DIALOG                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<SfDialog IsModal="true" @bind-Visible="isSparePartDialogVisible" Width="600px" Header="Spare Part Details" ShowCloseIcon="true">
+    <DialogEvents OnOverlayModalClick="OnOverlayModalClickHandler"></DialogEvents>
+    <div class="modal-content" style="padding: 20px; font-family: Arial, sans-serif;">
+        <div class="row">
+            <div class="col-md-4">
+                <img src="@selectedSparePart.PictureUrl" alt="@selectedSparePart.ItemName" style="width: 100%; height: auto; border-radius: 8px; object-fit: cover;" />
+            </div>
+            <div class="col-md-8">
+                <div style="margin-top: 10px;">
+                    <p><strong>Item Name:</strong> @selectedSparePart.ItemName</p>
+                    <p><strong>Serial Number:</strong> @selectedSparePart.SerialNumber</p>
+                    <p><strong>Description:</strong></p>
+                    <p class="description-text">@selectedSparePart.Description</p>
+                    <p><strong>Use For:</strong> @selectedSparePart.UseFor</p>
+                </div>
+                <div style="margin-top: 20px;">
+                    <button type="button" class="btn btn-primary" @onclick="CloseSparePartDialog">Close</button>
+                </div>
+            </div>
+        </div>
+        <div class="report-footer" style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px;">
+            <small style="color: #888;">Report generated on: @DateTime.Now.ToString("MMMM dd, yyyy hh:mm tt")</small>
+        </div>
+    </div>
+</SfDialog>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CHECK-LIST / VIEW DIALOG                               -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<SfDialog @ref="DialogView" Target="#target" Width="600px" IsModal="true" ShowCloseIcon="true" @bind-Visible="@isViewDialogVisible">
+    <DialogEvents OnOverlayModalClick="@OverlayClick"></DialogEvents>
+    <DialogTemplates>
+        <Header>View Information</Header>
+        <Content>
+            <div class="report-container">
+                <div class="report-header">
+                    <h3>Received Item Detail</h3>
+                    <p><strong>ref no:</strong> @_selectedRepairService?.reportNo</p>
+                </div>
+                <div class="report-body">
+                    <table class="report-table">
+                        <tr>
+                            <td class="report-label"><strong>Received Date:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.ServiceDate.ToString("dd/MM/yyyy HH:mm tt")</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>CompanyName:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.CompanyName</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Address:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.Address</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Contact Name:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.ContactName</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Phone Number:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.PhoneNumber</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Item Name:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.itemName</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Serial Number:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.serialNumber</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Customer Request:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.CustomerRequest</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Service Type:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.ServiceType</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Has Contract:</strong></td>
+                            <td class="report-value">@(_selectedRepairService?.hasContract == true ? "Yes" : "No")</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Service Priority:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.ServicePriority</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>Activities:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.Status</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Close" IsPrimary="true" OnClick="@CloseViewDialog" />
+    </DialogButtons>
+</SfDialog>
+
+@code {
+    [Parameter] public string ReportNo { get; set; }
+    [Inject] protected NavigationManager Navigation { get; set; }
+
+    // ── Grid ──
+    private SfGrid<RepairServices> MyGrid;
+    ToastAnimationType Animation { get; set; } = ToastAnimationType.Slide;
+    private string activeBreakpoint { get; set; }
+    private IEnumerable<RepairServices> filteredRepairServices;
+    private HubConnection hubConnection;
+    public string[] ToolbarItems = new string[] { "ColumnChooser", "Search" };
+
+    // ── Dialogs ──
+    private SfDialog DialogEdit;
+    private SfDialog DialogView;
+    private bool isViewDialogVisible = false;
+    private bool isEditDialogVisible = false;
+
+    // ── Row selection ──
+    private bool isRowSelected = false;
+    private RepairServices _selectedRepairService;
+
+    // ── Edit / Inspect form ──
+    private InspectItemRequest inspectItem = new InspectItemRequest();
+    private bool isEditMode = false;
+    private string saveErrorMessage = string.Empty;
+    private IEnumerable<ServiceType> _serviceTypes;
+    private List<string> _repairConditions = new List<string> { "Fix", "Replace", "Free" };
+
+    // ── Spare parts ──
+    private IEnumerable<SparePartObject> _spareParts = Enumerable.Empty<SparePartObject>();
+    private List<SparePartObject> filteredSpareParts = new();
+    private bool isSparePartLoading = false;
+    private SparePartObject selectedSparePart = new SparePartObject();
+    private bool isSparePartDialogVisible = false;
+    private bool isXSmallScreen;
+
+    // ── Save state ──
+    private bool isSaving = false;
+
+    // ── Pagination ──
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 0;
+    private int totalItems = 0;
+
+    // ── Search ──
+    private SfTextBox ReceivedSearchBox;
+    private string ReceivedSearchValue { get; set; }
+    private System.Threading.Timer _receivedSearchDebounceTimer;
+    private System.Threading.Timer _sparePartSearchDebounceTimer;
+
+    // ── Users ──
+    private Dictionary<string, string> _allUsers = new Dictionary<string, string>();
+    private bool _usersLoaded = false;
+
+    // ── Misc ──
+    private Timer colorChangeTimer;
+    private bool isRed = true;
+
+    // ─────────────────────────────────────────────────────
+    // LIFECYCLE
+    // ─────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        try
+        {
+            await LoadAllUsersAsync();
+            await LoadPageData();
+            _serviceTypes = await RepairItemService.GetServiceTypesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading data: {ex.Message}");
+        }
+
+        var routeData = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Split('/');
+        string reportNoFromRoute = routeData.Length > 1 ? routeData[1] : null;
+
+        if (!string.IsNullOrEmpty(reportNoFromRoute))
+        {
+            var result = await RepairItemService.SearchRepairServicesAsync(
+                pageNumber: 1, pageSize: 10, status: "Inspecting", searchTerm: reportNoFromRoute);
+            filteredRepairServices = result.Items;
+
+            var selected = filteredRepairServices.FirstOrDefault();
+            if (selected != null)
+                await OnAcceptButtonClick(selected);
+        }
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/itemHub"))
+            .Build();
+
+        hubConnection.On<string>("ReceiveItemUpdate", async (message) =>
+        {
+            await Cache.InvalidateManyAsync(
+                CacheKeys.InspectItem(currentPage, pageSize),
+                CacheKeys.DashboardStats
+            );
+            await LoadPageData();
+
+            if (isEditDialogVisible && filteredSpareParts.Any())
+            {
+                var result = await SparePartService.GetSparePartsPagedAsync(1, 10);
+                filteredSpareParts = result.Items.ToList();
+                await EnsureSelectedSparePartsInFilteredList();
+            }
+
+            await InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<Guid>("BroadcastItemDelete", (deletedItemId) =>
+        {
+            filteredRepairServices = filteredRepairServices
+                .Where(item => item.Id != deletedItemId).ToList();
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+
+        hubConnection.Closed += async (error) =>
+        {
+            await Task.Delay(new Random().Next(0, 5) * 1000);
+            try { await hubConnection.StartAsync(); }
+            catch (Exception ex) { Console.WriteLine($"Reconnection failed: {ex.Message}"); }
+        };
+
+        colorChangeTimer = new Timer(1000);
+        colorChangeTimer.Elapsed += OnTimerElapsed;
+        colorChangeTimer.Start();
+    }
+    // ─────────────────────────────────────────────────────
+    // DATA LOADING
+    // ─────────────────────────────────────────────────────
+  private async Task LoadAllUsersAsync()
+{
+    if (_usersLoaded) return;
+    try
+    {
+        _allUsers = await GlobalUserCache.GetUsersAsync();
+        _usersLoaded = true;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Error loading users: {ex.Message}");
+        _allUsers = new Dictionary<string, string>();
+    }
+}
+
+    private async Task LoadPageData()
+    {
+        try
+        {
+            var result = await Cache.GetOrSetAsync(
+                CacheKeys.InspectItem(currentPage, pageSize),
+                () => RepairItemService.SearchRepairServicesAsync(
+                    pageNumber: currentPage,
+                    pageSize: pageSize,
+                    status: "Inspecting",
+                    sortBy: "reportNo",
+                    sortDescending: true),
+                TimeSpan.FromMinutes(3)
+            );
+
+            filteredRepairServices = result?.Items ?? new List<RepairServices>();
+            totalPages = result?.TotalPages ?? 0;
+            totalItems = result?.TotalCount ?? 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading page data: {ex.Message}");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────
+    // PAGINATION
+    // ─────────────────────────────────────────────────────
+    private async Task NextPage() { if (currentPage < totalPages) { currentPage++; await LoadPageData(); StateHasChanged(); } }
+    private async Task PreviousPage() { if (currentPage > 1) { currentPage--; await LoadPageData(); StateHasChanged(); } }
+    private async Task FirstPage() { currentPage = 1; await LoadPageData(); StateHasChanged(); }
+    private async Task LastPage() { currentPage = totalPages; await LoadPageData(); StateHasChanged(); }
+
+    // ─────────────────────────────────────────────────────
+    // HELPERS
+    // ─────────────────────────────────────────────────────
+    private string GetUserNameById(Guid? userId)
+    {
+        if (!userId.HasValue || userId.Value == Guid.Empty) return "Unknown";
+        if (!_usersLoaded) return "Loading...";
+        return _allUsers.TryGetValue(userId.Value.ToString(), out string username) ? username : "Unknown User";
+    }
+
+    private string GetLocalizedServiceTypeName(string serviceTypeName)
+    {
+        if (string.IsNullOrEmpty(serviceTypeName)) return "Unknown";
+        return serviceTypeName switch
+        {
+            "Free" => Loc[nameof(ResourceStrings.TextServiceTypeFree)],
+            "Charge" => Loc[nameof(ResourceStrings.TextServiceTypeCharge)],
+            _ => serviceTypeName
+        };
+    }
+
+    private string GetStockColorForCombo(int q) => q <= 0 ? "#dc3545" : q <= 5 ? "#ff6b6b" : q <= 10 ? "#ffc107" : "#28a745";
+    private string GetStockIconForCombo(int q) => q <= 0 ? "fas fa-exclamation-triangle" : q <= 5 ? "fas fa-exclamation-circle" : q <= 10 ? "fas fa-info-circle" : "fas fa-check-circle";
+    private string GetStockTextForCombo(int q) => q <= 0 ? "OUT OF STOCK" : q <= 5 ? "CRITICAL" : q <= 10 ? "LOW STOCK" : "IN STOCK";
+
+    private SparePartObject GetSparePartById(Guid? sparePartId)
+    {
+        if (!sparePartId.HasValue || sparePartId.Value == Guid.Empty) return null;
+        return _spareParts.FirstOrDefault(sp => sp.Id == sparePartId.Value);
+    }
+
+    private void OnTimerElapsed(object sender, ElapsedEventArgs e)
+    {
+        isRed = !isRed;
+        InvokeAsync(StateHasChanged);
+    }
+
+    // ─────────────────────────────────────────────────────
+    // GRID EVENTS
+    // ─────────────────────────────────────────────────────
+    private async Task ReceivedRowSelectHandler(RowSelectEventArgs<RepairServices> args)
+    {
+        _selectedRepairService = args.Data;
+        isRowSelected = _selectedRepairService != null;
+        await Task.CompletedTask;
+        StateHasChanged();
+    }
+
+    // ─────────────────────────────────────────────────────
+    // ACCEPT BUTTON → opens edit/inspect dialog inline
+    // ─────────────────────────────────────────────────────
+    private async Task OnAcceptButtonClick(RepairServices item)
+    {
+        _selectedRepairService = item;
+        isRowSelected = true;
+
+        isEditMode = true;
+        inspectItem = new InspectItemRequest
+        {
+            Id = item.Id,
+            Inspection = item.Inspection,
+            Solution = item.Solution,
+            InspectBy = item.inspectBy ?? Guid.Empty,
+            ServiceTypeId = item.ServiceTypeId ?? 1
+        };
+
+        if (item.SparePartItems != null && item.SparePartItems.Any())
+        {
+            inspectItem.SpareParts = item.SparePartItems
+                .Where(sp => sp.SparePartId.HasValue && sp.SparePartId.Value != Guid.Empty)
+                .Select(sp => new SparePart
+                {
+                    Id = sp.Id,
+                    SparePartId = sp.SparePartId.Value,
+                    Description = sp.Description ?? string.Empty,
+                    Quantity = sp.Quantity,
+                    Condition = sp.Condition ?? string.Empty
+                }).ToList();
+            await LoadSelectedSparePartsOnly(inspectItem.SpareParts);
+        }
+        else
+        {
+            inspectItem.SpareParts = new List<SparePart>();
+            filteredSpareParts.Clear();
+        }
+
+        isEditDialogVisible = true;
+        StateHasChanged();
+    }
+
+    // ─────────────────────────────────────────────────────
+    // TOOLBAR ACTIONS
+    // ─────────────────────────────────────────────────────
+    private void NewRepairService_Click() { /* disabled per toolbar */ }
+
+    private void EditRepairService_Click()
+    {
+        if (_selectedRepairService != null)
+            _ = OnAcceptButtonClick(_selectedRepairService);
+    }
+
+    private void ShowCheckListDialog()
+    {
+        if (_selectedRepairService != null) { isViewDialogVisible = true; StateHasChanged(); }
+    }
+
+    // ─────────────────────────────────────────────────────
+    // EDIT DIALOG — SPARE PARTS
+    // ─────────────────────────────────────────────────────
+    private async Task AddSparePart()
+    {
+        inspectItem.SpareParts ??= new List<SparePart>();
+        inspectItem.SpareParts.Add(new SparePart
+        {
+            Id = Guid.Empty,
+            SparePartId = Guid.Empty,
+            Description = string.Empty,
+            Quantity = 1,
+            Condition = string.Empty
+        });
+        await EnsureSelectedSparePartsInFilteredList();
+        StateHasChanged();
+    }
+
+    private async Task RemoveSparePart(SparePart sparePart)
+    {
+        if (inspectItem.SpareParts == null) return;
+
+        if (sparePart.Id == Guid.Empty)
+        {
+            inspectItem.SpareParts.Remove(sparePart);
+            StateHasChanged();
+            return;
+        }
+
+        if (inspectItem.Id != Guid.Empty)
+        {
+            try
+            {
+                await InspectItemService.DeleteSparepartItemAsync(inspectItem.Id, sparePart.Id);
+                ToastNotificationService.ShowToast(new ToastOptions
+                {
+                    ProviderName = "Customization",
+                    Title = "Success",
+                    Text = "Spare part removed successfully",
+                    ThemeMode = ToastThemeMode.Pastel,
+                    RenderStyle = ToastRenderStyle.Success
+                });
+            }
+            catch (Exception ex)
+            {
+                ToastNotificationService.ShowToast(new ToastOptions
+                {
+                    ProviderName = "Error",
+                    Title = "Error",
+                    Text = $"Failed to remove spare part: {ex.Message}",
+                    ThemeMode = ToastThemeMode.Pastel,
+                    RenderStyle = ToastRenderStyle.Danger
+                });
+                return;
+            }
+        }
+
+        inspectItem.SpareParts.Remove(sparePart);
+        StateHasChanged();
+    }
+
+    private async Task EnsureSelectedSparePartsInFilteredList()
+    {
+        if (inspectItem?.SpareParts == null || !inspectItem.SpareParts.Any()) return;
+
+        var selectedIds = inspectItem.SpareParts
+            .Where(sp => sp.SparePartId != Guid.Empty)
+            .Select(sp => sp.SparePartId)
+            .ToList();
+
+        foreach (var selectedId in selectedIds)
+        {
+            if (!filteredSpareParts.Any(sp => sp.Id == selectedId))
+            {
+                try
+                {
+                    var sp = await SparePartService.GetSparePartByIdAsync(selectedId);
+                    if (sp != null) filteredSpareParts.Insert(0, sp);
+                }
+                catch (Exception ex) { Console.WriteLine($"❌ Error fetching {selectedId}: {ex.Message}"); }
+            }
+        }
+    }
+
+    private async Task LoadSelectedSparePartsOnly(List<SparePart> spareParts)
+    {
+        try
+        {
+            filteredSpareParts.Clear();
+            if (spareParts == null || !spareParts.Any()) return;
+
+            var sparePartIds = spareParts
+                .Where(sp => sp.SparePartId != Guid.Empty)
+                .Select(sp => sp.SparePartId)
+                .Distinct()
+                .ToList();
+
+            if (!sparePartIds.Any()) return;
+
+            var loaded = new List<SparePartObject>();
+            foreach (var id in sparePartIds)
+            {
+                try
+                {
+                    var sp = await SparePartService.GetSparePartByIdAsync(id);
+                    if (sp != null) loaded.Add(sp);
+                }
+                catch (Exception ex) { Console.WriteLine($"❌ Error loading {id}: {ex.Message}"); }
+            }
+
+            filteredSpareParts = loaded;
+            _spareParts = loaded;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error in LoadSelectedSparePartsOnly: {ex.Message}");
+            filteredSpareParts.Clear();
+        }
+    }
+
+    private async Task OnComboBoxClick(int index)
+    {
+        if (!filteredSpareParts.Any())
+        {
+            try
+            {
+                var result = await SparePartService.GetSparePartsPagedAsync(pageNumber: 1, pageSize: 10);
+                filteredSpareParts = result.Items.ToList();
+                StateHasChanged();
+            }
+            catch (Exception ex) { Console.WriteLine($"Error loading spare parts: {ex.Message}"); }
+        }
+    }
+
+    private async Task OnComboBoxClick2(int index) => await Task.CompletedTask;
+
+    public async Task OnFilteringSparePart(Syncfusion.Blazor.DropDowns.FilteringEventArgs args)
+    {
+        args.PreventDefaultAction = true;
+        _sparePartSearchDebounceTimer?.Dispose();
+        isSparePartLoading = true;
+        StateHasChanged();
+
+        if (string.IsNullOrWhiteSpace(args.Text))
+        {
+            isSparePartLoading = false;
+            await EnsureSelectedSparePartsInFilteredList();
+            StateHasChanged();
+            return;
+        }
+
+        _sparePartSearchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await InvokeAsync(async () =>
+                {
+                    var result = await SparePartService.SearchSparePartsAsync(
+                        pageNumber: 1, pageSize: 50, searchTerm: args.Text.Trim());
+                    filteredSpareParts = result.Items.ToList();
+                    await EnsureSelectedSparePartsInFilteredList();
+                    isSparePartLoading = false;
+                    StateHasChanged();
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Search error: {ex.Message}");
+                isSparePartLoading = false;
+                StateHasChanged();
+            }
+        }, null, 300, Timeout.Infinite);
+    }
+
+    // ─────────────────────────────────────────────────────
+    // EDIT DIALOG — SAVE
+    // ─────────────────────────────────────────────────────
+    private async Task Save()
+    {
+        try
+        {
+            saveErrorMessage = string.Empty;
+            isSaving = true;
+            StateHasChanged();
+
+            if (inspectItem == null || inspectItem.Id == Guid.Empty)
+                throw new InvalidOperationException("Invalid inspection data.");
+
+            inspectItem.SpareParts ??= new List<SparePart>();
+
+            var currentUserId = JwtSessionService.GetCurrentUserId();
+            if (!currentUserId.HasValue)
+            {
+                saveErrorMessage = "Your session has expired. Please login again.";
+                isSaving = false;
+                StateHasChanged();
+                return;
+            }
+
+            inspectItem.InspectBy = currentUserId.Value;
+            Guid repairServiceId = inspectItem.Id;
+
+            var validSpareParts = inspectItem.SpareParts
+                .Where(sp => sp.SparePartId != Guid.Empty && sp.Quantity > 0)
+                .ToList();
+
+            foreach (var sp in validSpareParts)
+            {
+                sp.ServiceId = repairServiceId;
+                sp.IsHoldStatus = true;
+            }
+
+            inspectItem.SpareParts = validSpareParts;
+
+            if (isEditMode)
+                await InspectItemService.UpdateInspectItemAsync(repairServiceId, inspectItem);
+            else
+                await InspectItemService.CreateInspectItemAsync(repairServiceId, inspectItem);
+
+            // ✅ Cache Invalidation
+            await Cache.InvalidateManyAsync(
+                CacheKeys.InspectItem(currentPage, pageSize),
+                CacheKeys.InspectItem(1, pageSize),
+                CacheKeys.DashboardStats
+            );
+
+            // ✅ RabbitMQ Publish
+            // ✅ RabbitMQ Publish
+            if (isEditMode)
+            {
+                await MQ.PublishUpdateAsync(
+                    MessageQueueHelper.Queues.InspectItem,
+                    repairServiceId,
+                    _selectedRepairService?.reportNo,
+                    currentUserId.Value
+                );
+            }
+            else
+            {
+                await MQ.PublishCreateAsync(
+                    MessageQueueHelper.Queues.InspectItem,
+                    repairServiceId,
+                    _selectedRepairService?.reportNo,
+                    currentUserId.Value
+                );
+            }
+
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Customization",
+                Title = "Success",
+                Text = isEditMode ? "Inspection updated successfully" : "Inspection created successfully",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Success
+            });
+
+            bool wasEditMode = isEditMode;
+
+            isEditDialogVisible = false;
+            isEditMode = false;
+            _selectedRepairService = null;
+            isRowSelected = false;
+            filteredSpareParts.Clear();
+            _spareParts = Enumerable.Empty<SparePartObject>();
+            isSaving = false;
+            StateHasChanged();
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    if (hubConnection?.State == HubConnectionState.Connected)
+                        await hubConnection.SendAsync("BroadcastItemUpdate",
+                            wasEditMode ? "ItemUpdated" : "ItemCreated");
+
+                    currentPage = 1;
+                    await Cache.InvalidateManyAsync(CacheKeys.InspectItem(1, pageSize));
+                    await LoadPageData();
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Background error: {ex.Message}");
+                }
+            });
+        }
+        catch (HttpRequestException httpEx)
+        {
+            var fullError = httpEx.Message;
+            string display = "An error occurred while saving.";
+            try
+            {
+                if (fullError.Contains("Insufficient stock"))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        fullError,
+                        @"Insufficient stock for[^:]*: ([^.]+)\.\s*Available: (\d+),?\s*Required: (\d+)");
+                    display = match.Success
+                        ? $"Insufficient stock for: {match.Groups[1].Value}. Available: {match.Groups[2].Value}, Required: {match.Groups[3].Value}"
+                        : "Insufficient stock. Please check inventory.";
+                }
+            }
+            catch { }
+
+            saveErrorMessage = display;
+            isSaving = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            saveErrorMessage = ex.Message;
+            isSaving = false;
+            StateHasChanged();
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Error",
+                Text = $"Failed to save: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+    }
+
+    private void CancelEditDialog()
+    {
+        isEditDialogVisible = false;
+        _selectedRepairService = null;
+        isRowSelected = false;
+        isEditMode = false;
+        filteredSpareParts.Clear();
+        _spareParts = Enumerable.Empty<SparePartObject>();
+        saveErrorMessage = string.Empty;
+    }
+
+    // ─────────────────────────────────────────────────────
+    // SPARE PART DETAILS DIALOG
+    // ─────────────────────────────────────────────────────
+    private void ShowFullDetails(SparePartObject sparePart)
+    {
+        selectedSparePart = sparePart;
+        isSparePartDialogVisible = true;
+    }
+
+    private void CloseSparePartDialog() => isSparePartDialogVisible = false;
+    private void OnOverlayModalClickHandler(OverlayModalClickEventArgs args) => isSparePartDialogVisible = false;
+
+    // ─────────────────────────────────────────────────────
+    // CHECK-LIST / VIEW DIALOG
+    // ─────────────────────────────────────────────────────
+    private void CloseViewDialog() => isViewDialogVisible = false;
+    private void OverlayClick(OverlayModalClickEventArgs args) => isViewDialogVisible = false;
+
+    // ─────────────────────────────────────────────────────
+    // SEARCH
+    // ─────────────────────────────────────────────────────
+    private async Task PerformReceivedSearch()
+    {
+        if (string.IsNullOrWhiteSpace(ReceivedSearchValue))
+        {
+            await LoadPageData();
+            return;
+        }
+        await PerformReceivedSearchInternal(ReceivedSearchValue);
+    }
+
+    private async Task PerformReceivedSearchInternal(string searchValue)
+    {
+        try
+        {
+            var result = await RepairItemService.SearchRepairServicesAsync(
+                pageNumber: 1,
+                pageSize: pageSize,
+                status: "Inspecting",
+                searchTerm: searchValue.Trim(),
+                sortBy: "reportNo",
+                sortDescending: true);
+
+            filteredRepairServices = result.Items;
+            totalPages = result.TotalPages;
+            totalItems = result.TotalCount;
+            currentPage = 1;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Received items search error: {ex.Message}");
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Search Error",
+                Text = $"Failed to search: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+    }
+
+    private void OnReceivedSearchInput(InputEventArgs args)
+    {
+        _receivedSearchDebounceTimer?.Dispose();
+
+        if (string.IsNullOrWhiteSpace(args.Value))
+        {
+            _ = Task.Run(async () =>
+                await InvokeAsync(async () =>
+                {
+                    await Cache.InvalidateManyAsync(
+                        CacheKeys.InspectItem(currentPage, pageSize));
+                    await LoadPageData();
+                    StateHasChanged();
+                }));
+            return;
+        }
+
+        _receivedSearchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                await InvokeAsync(async () =>
+                    await PerformReceivedSearchInternal(args.Value));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Search error: {ex.Message}");
+            }
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private async Task ClearReceivedSearch()
+    {
+        ReceivedSearchValue = string.Empty;
+        currentPage = 1;
+        await Cache.InvalidateManyAsync(
+            CacheKeys.InspectItem(currentPage, pageSize),
+            CacheKeys.InspectItem(1, pageSize)
+        );
+        await LoadPageData();
+        StateHasChanged();
+    }
+
+    // ─────────────────────────────────────────────────────
+    // PRINT
+    // ─────────────────────────────────────────────────────
+    private async Task ShowReportPreview(RepairServices selectedRepairService)
+    {
+        if (selectedRepairService == null) return;
+        try
+        {
+            var report = new Report2();
+            string repairByUser = GetUserNameById(selectedRepairService.repairBy);
+            string verifiedByUser = GetUserNameById(selectedRepairService.verifiedBy);
+
+            var phones = await Task.WhenAll(
+                GlobalUserCache.GetUserPhoneNumberByIdAsync(selectedRepairService.repairBy, autoLoad: true),
+                GlobalUserCache.GetUserPhoneNumberByIdAsync(selectedRepairService.verifiedBy, autoLoad: true)
+            );
+
+            if (selectedRepairService.SparePartItems != null)
+            {
+                var validParts = selectedRepairService.SparePartItems
+                    .Where(i => i.SparePartId.HasValue && i.SparePartId.Value != Guid.Empty)
+                    .ToList();
+                var fetchTasks = validParts.Select(async item =>
+                {
+                    try
+                    {
+                        var details = await SparePartService.GetSparePartByIdAsync(item.SparePartId.Value);
+                        if (details != null)
+                        {
+                            item.ItemName = details.ItemName;
+                            item.SerialNumber = details.SerialNumber;
+                            item.UseFor = details.UseFor;
+                        }
+                    }
+                    catch { }
+                }).ToList();
+                await Task.WhenAll(fetchTasks);
+            }
+
+            report.SetParameters(selectedRepairService, selectedRepairService.ServiceLocation,
+                selectedRepairService.SparePartItems, selectedRepairService.hasContract,
+                repairByUser, verifiedByUser, phones[0], phones[1]);
+
+            foreach (var param in new[] { "Id", "ReportNumber", "CompanyName", "ContactName", "PhoneNumber", "Address", "ItemName", "SerialNumber", "CustomerRequest", "inspection", "Solution", "CompanyServiceChecked", "OnSiteChecked", "HasContract", "Datestart", "Datefinish", "RepairBy", "VerifiedBy", "RepairByPhone", "VerifiedByPhone" })
+                report.Parameters[param].Visible = false;
+
+            byte[] reportData;
+            using (var ms = new MemoryStream()) { report.ExportToPdf(ms); reportData = ms.ToArray(); }
+
+            string sanitized = selectedRepairService.reportNo?.Replace("/", "-").Replace("\\", "-") ?? "Report";
+            await JSRuntime.InvokeVoidAsync("blazorReportsPrint.printReport",
+                Convert.ToBase64String(reportData),
+                $"ServiceReport_{sanitized}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
+        }
+        catch (Exception ex)
+        {
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Report Error",
+                Text = $"Failed: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+    }
+
+    // ─────────────────────────────────────────────────────
+    // EXPORT
+    // ─────────────────────────────────────────────────────
+    public async Task ExportToExcel() => await MyGrid.ExportToExcelAsync();
+    public async Task ExportToPdf() => await MyGrid.ExportToPdfAsync();
+
+    // ─────────────────────────────────────────────────────
+    // DISPOSE
+    // ─────────────────────────────────────────────────────
+    public async ValueTask DisposeAsync()
+    {
+        _receivedSearchDebounceTimer?.Dispose();
+        _sparePartSearchDebounceTimer?.Dispose();
+        colorChangeTimer?.Dispose();
+        if (hubConnection != null) await hubConnection.DisposeAsync();
+    }
+}
+
+<style>
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    .spare-parts-container {
+        margin: 1.5rem 0;
+    }
+
+    .modern-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+        .modern-table thead tr {
+            background: transparent;
+            color: #333;
+        }
+
+        .modern-table th {
+            padding: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            letter-spacing: 0.5px;
+            border: none;
+        }
+
+        .modern-table tbody tr {
+            transition: all 0.3s ease;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+            .modern-table tbody tr:hover {
+                background: #eff6ff;
+                transform: scale(1.01);
+                box-shadow: 0 4px 12px rgba(37,99,235,0.15);
+            }
+
+        .modern-table td {
+            padding: 1rem;
+            vertical-align: middle;
+            border: none;
+        }
+
+    .combo-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        gap: 1rem;
+        transition: background 0.2s;
+        border-radius: 8px;
+    }
+
+        .combo-item:hover {
+            background: #eff6ff;
+        }
+
+    .combo-item-image {
+        width: 60px;
+        height: 60px;
+        border-radius: 8px;
+        object-fit: cover;
+        flex-shrink: 0;
+        border: 2px solid #e0e0e0;
+    }
+
+    .combo-item-details {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .combo-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .item-name {
+        font-size: 0.9rem;
+        color: #333;
+        font-weight: 600;
+    }
+
+    .serial-number {
+        font-size: 0.75rem;
+        color: #666;
+        background: #f0f0f0;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+
+    .combo-item-info {
+        font-size: 0.8rem;
+        color: #666;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .divider {
+        margin: 0 0.5rem;
+        color: #ccc;
+    }
+
+    .btn-view-details {
+        background: none;
+        border: none;
+        color: #2563eb;
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 50%;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+        .btn-view-details:hover {
+            background: #2563eb;
+            color: white;
+            transform: scale(1.1);
+        }
+
+    .modern-input {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 0.5rem;
+        text-align: center;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+        .modern-input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+        }
+
+    .btn-remove {
+        background: linear-gradient(135deg,#ff6b6b 0%,#ee5a6f 100%);
+        color: white;
+        border: none;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+    }
+
+        .btn-remove:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255,107,107,0.4);
+        }
+
+        .btn-remove:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    .btn-add-spare {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg,#2563eb 0%,#1e40af 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+        margin-top: 1rem;
+    }
+
+        .btn-add-spare:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37,99,235,0.4);
+        }
+
+        .btn-add-spare:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    .spare-part-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1rem;
+        overflow: hidden;
+    }
+
+    .card-header-mobile {
+        background: transparent;
+        color: #333;
+        padding: 0.75rem 1rem;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+    }
+
+    .btn-remove-mobile {
+        background: linear-gradient(135deg,#ff6b6b 0%,#ee5a6f 100%);
+        color: white;
+        border: none;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    .card-body-mobile {
+        padding: 0 1rem 1rem 1rem;
+    }
+
+    .mobile-field {
+        margin-bottom: 0.75rem;
+    }
+
+        .mobile-field label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-size: 0.875rem;
+        }
+
+    .mobile-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #999;
+    }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+    .empty-state-mobile {
+        text-align: center;
+        padding: 2rem;
+        background: white;
+        border-radius: 12px;
+        color: #999;
+    }
+
+    .loading-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+        color: #2563eb;
+    }
+
+    .no-records {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+        color: #999;
+    }
+
+    .stock-indicator-row {
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .stock-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    @@media (max-width: 768px) {
+        .combo-item-image {
+            width: 50px !important;
+            height: 50px !important;
+        }
+
+        .combo-item-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 0.25rem !important;
+        }
+
+        .item-name {
+            font-size: 0.85rem !important;
+        }
+
+        .serial-number {
+            font-size: 0.7rem !important;
+        }
+
+        .stock-badge {
+            font-size: 0.65rem !important;
+            padding: 2px 6px !important;
+        }
+
+        .divider, .btn-view-details {
+            display: none !important;
+        }
+    }
+
+    @@media (max-width: 390px) {
+        .combo-item-image {
+            width: 40px !important;
+            height: 40px !important;
+        }
+
+        .item-name {
+            font-size: 0.8rem !important;
+        }
+
+        .stock-badge {
+            font-size: 0.6rem !important;
+        }
+    }
+</style>

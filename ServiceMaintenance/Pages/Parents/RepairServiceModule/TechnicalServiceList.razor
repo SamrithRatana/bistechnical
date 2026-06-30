@@ -1,0 +1,1483 @@
+﻿@page "/repairservices"
+@using DevExpress.XtraReports.UI
+@using Microsoft.AspNetCore.Http.Connections
+@using Microsoft.AspNetCore.SignalR.Client
+@using ServiceMaintenance.Pages.Reports
+@using ServiceMaintenance.Services
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Popups
+@using Syncfusion.Blazor.Inputs
+@using Syncfusion.Blazor.Buttons
+@inject RepairItemService RepairItemService
+@inject ServiceSparePart SparePartService
+@inject CustomerService CustomerService
+@inject GlobalUserService UserCacheService
+@inject JwtUserManagementService JwtUserManagementService
+@inject JwtSessionService JwtSessionService
+@inject JwtMessageService JwtMessageService
+@inject IJSRuntime JSRuntime
+@inject StateManagementAction StateManagementAction
+@using System.Security.Claims
+
+@inherits PermissionBase
+
+<style>
+    .request-modal-content {
+        padding: 20px;
+    }
+
+    .request-options {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin: 20px 0;
+    }
+
+    .option-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+        .option-card:hover {
+            border-color: #2563eb;
+            background-color: #f0f4ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        }
+
+        .option-card.selected {
+            border-color: #2563eb;
+            background-color: #e0edff;
+        }
+
+    .option-icon {
+        font-size: 2rem;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: #f0f4ff;
+    }
+
+    .option-card.selected .option-icon {
+        background-color: #2563eb;
+        color: white;
+    }
+
+    .option-content {
+        flex: 1;
+    }
+
+    .option-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 5px;
+        color: #333;
+    }
+
+    .option-description {
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    .option-radio {
+        width: 20px;
+        height: 20px;
+    }
+
+    .selected-service-info {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+        .selected-service-info h5 {
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: 600;
+        }
+
+    .service-detail {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+        .service-detail:last-child {
+            border-bottom: none;
+        }
+
+    .service-label {
+        font-weight: 500;
+        color: #666;
+    }
+
+    .service-value {
+        color: #333;
+    }
+</style>
+@{
+    bool enableAdaptiveUIMode = activeBreakpoint == "Small" || activeBreakpoint == "Medium";
+    RowDirection renderingMode = activeBreakpoint == "Small" ? RowDirection.Vertical : RowDirection.Horizontal;
+}
+@if (CanAccess)
+{
+    <DxToastProvider Name="Customization"
+                     MaxToastCount="5"
+                     HorizontalAlignment="HorizontalAlignment.Right"
+                     VerticalAlignment="VerticalEdge.Top"
+                     AnimationType="@Animation" />
+
+    <div class="card shadow-sm rounded-lg">
+        <div class="card-body">
+            <DxToolbar ItemRenderStyleMode="ToolbarRenderStyleMode.Plain">
+                <DxToolbarItem Text="Request Admin"
+                               Click="ShowRequestModal"
+                               IconCssClass="fas fa-user-shield"
+                               CssClass="toolbar-item"
+                               Enabled="true" />
+                <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextExport)]"
+                               IconCssClass="fas fa-download">
+                    <Items>
+                        <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextToExcel)]"
+                                       Click="ExportToExcel"
+                                       IconCssClass="fas fa-file-excel" />
+                        <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextToPdf)]"
+                                       Click="ExportToPdf"
+                                       IconCssClass="fas fa-file-pdf" />
+                    </Items>
+                </DxToolbarItem>
+                <DxToolbarItem Text="Print Report"
+                               Click="@(async () => await Print(_selectedRepairService))"
+                               CssClass="toolbar-item" />
+                <DxToolbarItem>
+                    <Template>
+                        <div class="d-flex justify-content-end align-items-center">
+                            <SfTextBox Placeholder="Search..."
+                                       @bind-Value="searchText"
+                                       CssClass="form-control me-2"
+                                       Width="250px"
+                                       Input="OnSearchInput">
+                            </SfTextBox>
+                            <button @onclick="PerformSearch" class="btn btn-primary">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </Template>
+                </DxToolbarItem>
+            </DxToolbar>
+        </div>
+    </div>
+
+    <hr>
+
+    <!-- Request Admin Modal -->
+    <SfDialog @ref="DialogRequestAdmin"
+              Width="600px"
+              IsModal="true"
+              ShowCloseIcon="true"
+              @bind-Visible="@isRequestModalVisible">
+        <DialogEvents OnOverlayModalClick="@OverlayClick"></DialogEvents>
+        <DialogTemplates>
+            <Header>
+                <i class="fas fa-user-shield"></i> Request Admin Action
+            </Header>
+            <Content>
+                <div class="request-modal-content">
+                    @if (_selectedRepairService != null && _selectedRepairService.Id != Guid.Empty)
+                    {
+                        <div class="selected-service-info">
+                            <h5>Selected Service</h5>
+                            <div class="service-detail">
+                                <span class="service-label">Report No:</span>
+                                <span class="service-value">@_selectedRepairService.reportNo</span>
+                            </div>
+                            <div class="service-detail">
+                                <span class="service-label">Company:</span>
+                                <span class="service-value">@_selectedRepairService.CompanyName</span>
+                            </div>
+                            <div class="service-detail">
+                                <span class="service-label">Item:</span>
+                                <span class="service-value">@_selectedRepairService.itemName</span>
+                            </div>
+                            <div class="service-detail">
+                                <span class="service-label">Status:</span>
+                                <span class="service-value">@_selectedRepairService.Status</span>
+                            </div>
+                        </div>
+
+                        <p style="margin-bottom: 15px; color: #666;">
+                            Please select the action you want the admin to perform:
+                        </p>
+
+                        <div class="request-options">
+                            <div class="option-card @(selectedRequestAction == "Edit" ? "selected" : "")"
+                                 @onclick="@(() => SelectRequestAction("Edit"))">
+                                <div class="option-icon">
+                                    <i class="fas fa-edit"></i>
+                                </div>
+                                <div class="option-content">
+                                    <div class="option-title">Request Edit</div>
+                                    <div class="option-description">
+                                        Ask admin to edit this service record
+                                    </div>
+                                </div>
+                                <input type="radio"
+                                       class="option-radio"
+                                       checked="@(selectedRequestAction == "Edit")"
+                                       @onchange="@(() => SelectRequestAction("Edit"))" />
+                            </div>
+
+                            <div class="option-card @(selectedRequestAction == "Delete" ? "selected" : "")"
+                                 @onclick="@(() => SelectRequestAction("Delete"))">
+                                <div class="option-icon">
+                                    <i class="fas fa-trash-alt"></i>
+                                </div>
+                                <div class="option-content">
+                                    <div class="option-title">Request Delete</div>
+                                    <div class="option-description">
+                                        Ask admin to delete this service record
+                                    </div>
+                                </div>
+                                <input type="radio"
+                                       class="option-radio"
+                                       checked="@(selectedRequestAction == "Delete")"
+                                       @onchange="@(() => SelectRequestAction("Delete"))" />
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(selectedRequestAction))
+                        {
+                            <div class="alert alert-info mt-3">
+                                <i class="fas fa-info-circle"></i>
+                                You have selected: <strong>@selectedRequestAction</strong>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Please select a service from the list first.
+                        </div>
+                    }
+                </div>
+            </Content>
+        </DialogTemplates>
+        <DialogButtons>
+            <DialogButton Content="Cancel"
+                          OnClick="CloseRequestModal"
+                          CssClass="btn btn-secondary" />
+            <DialogButton Content="Submit Request"
+                          OnClick="SubmitRequestToAdmin"
+                          CssClass="btn btn-primary"
+                          Disabled="@(string.IsNullOrEmpty(selectedRequestAction))" />
+        </DialogButtons>
+    </SfDialog>
+
+    <SfMediaQuery @bind-ActiveBreakPoint="activeBreakpoint"></SfMediaQuery>
+
+
+    <div class="h-100 grid-wrapper">
+        @if (isLoading)
+        {
+            <div class="card-body w-100">
+                <div class="card-header border-0 p-2 rounded">
+                    <DxLoadingPanel IndicatorAnimationType="WaitIndicatorAnimationType.Pulse"
+                                    CssClass="w-100"
+                                    IndicatorVisible="true"
+                                    IndicatorAreaVisible="true"
+                                    Visible="true"
+                                    Text="Loading services..."
+                                    TextAlignment="LoadingPanelTextAlignment.Right">
+                        <div style="min-height: 250px;"></div>
+                    </DxLoadingPanel>
+                </div>
+            </div>
+        }
+        else
+        {
+            <SfGrid @ref="MyGrid"
+                    DataSource="@currentPageData"
+                    AllowPaging="true"
+                    AllowSorting="true"
+                    ShowColumnChooser="true"
+                    AllowExcelExport="true"
+                    AllowPdfExport="true"
+                    AllowResizing="true"
+                    AllowFiltering="true"
+                    Height="600"
+                    SelectionMode="GridSelectionMode.Single"
+                    Toolbar="@ToolbarItems"
+                    EnableAdaptiveUI="@enableAdaptiveUIMode"
+                    RowRenderingMode="@renderingMode"
+                    AllowSelection="true">
+
+                <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+
+                <GridEvents RowSelected="RowSelectHandler"
+                            OnRecordDoubleClick="RowDoubleClickHandler"
+                            TValue="RepairServices"
+                            OnActionBegin="OnActionBegin">
+                </GridEvents>
+
+                <GridPageSettings PageSize="@pageSize"
+                                  PageCount="5">
+                </GridPageSettings>
+
+                <GridColumns>
+                    <GridColumn Field="@nameof(RepairServices.Id)" HeaderText="Id" Width="150" Visible="false" />
+                    <GridColumn Field="@nameof(RepairServices.reportNo)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextReports)]"
+                                Width="150" />
+                    <GridColumn Field="@nameof(RepairServices.ServiceDate)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextReceiveDate)]"
+                                Width="150"
+                                Format="dd/MM/yyyy HH:mm" />
+                    <GridColumn Field="@nameof(RepairServices.CompanyName)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextCompanyName)]"
+                                Width="200" />
+                    <GridColumn Field="@nameof(RepairServices.Address)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextAddress)]"
+                                Width="200" />
+                    <GridColumn Field="@nameof(RepairServices.ContactName)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextContactName)]"
+                                Width="200"
+                                Visible="false" />
+                    <GridColumn Field="@nameof(RepairServices.PhoneNumber)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextPhoneNumber)]"
+                                Width="200" />
+                    <GridColumn Field="@nameof(RepairServices.itemName)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextItemName)]"
+                                Width="200" />
+                    <GridColumn Field="@nameof(RepairServices.serialNumber)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextSerialNumber)]"
+                                Width="200" />
+                    <GridColumn Field="@nameof(RepairServices.ServiceLocation)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextServiceLocation)]"
+                                Width="200" />
+                    <GridColumn Field="@nameof(RepairServices.Status)"
+                                HeaderText="@Loc[nameof(ResourceStrings.TextStatus)]"
+                                Width="150">
+                        <Template>
+                            @{
+                                var item = context as RepairServices;
+                                var khmerStatus = GetKhmerStatus(item?.Status);
+                            }
+                            @khmerStatus
+                        </Template>
+                    </GridColumn>
+                    <GridColumn HeaderText="@Loc[nameof(ResourceStrings.TextAction)]" IsFrozen="true" Freeze="FreezeDirection.Right" Width="100">
+                        <Template>
+                            <DxButton IconCssClass="fas fa-eye"
+                                      CssClass="icon-button info"
+                                      RenderStyle="ButtonRenderStyle.Info"
+                                      RenderStyleMode="ButtonRenderStyleMode.Text"
+                                      Text="@Loc[nameof(ResourceStrings.TextView)]"
+                                      @onclick="() => ShowRepairServiceDetails(context as RepairServices)" />
+                        </Template>
+                    </GridColumn>
+                </GridColumns>
+            </SfGrid>
+
+            <!-- Custom Pagination Controls -->
+            <div class="mt-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <span>Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, totalRecords) of @totalRecords records</span>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary"
+                            @onclick="() => GoToPage(1)"
+                            disabled="@(currentPage == 1 || isLoadingPage)">
+                        <i class="fas fa-angle-double-left"></i> First
+                    </button>
+                    <button class="btn btn-outline-primary"
+                            @onclick="PreviousPage"
+                            disabled="@(currentPage == 1 || isLoadingPage)">
+                        <i class="fas fa-angle-left"></i> Previous
+                    </button>
+                    <span class="btn btn-light disabled">Page @currentPage of @totalPages</span>
+                    <button class="btn btn-outline-primary"
+                            @onclick="NextPage"
+                            disabled="@(currentPage >= totalPages || isLoadingPage)">
+                        Next <i class="fas fa-angle-right"></i>
+                    </button>
+                    <button class="btn btn-outline-primary"
+                            @onclick="() => GoToPage(totalPages)"
+                            disabled="@(currentPage >= totalPages || isLoadingPage)">
+                        Last <i class="fas fa-angle-double-right"></i>
+                    </button>
+                </div>
+                <div>
+                    <label class="me-2">Page Size:</label>
+                    <select class="form-select d-inline-block w-auto" @onchange="OnPageSizeChange">
+                        <option value="10" selected="@(pageSize == 10)">10</option>
+                        <option value="20" selected="@(pageSize == 20)">20</option>
+                        <option value="50" selected="@(pageSize == 50)">50</option>
+                        <option value="100" selected="@(pageSize == 100)">100</option>
+                    </select>
+                </div>
+            </div>
+        }
+</div>
+
+<SfDialog @ref="DialogEdit" Target="#target" Width="600px" IsModal="true" ShowCloseIcon="true" @bind-Visible="@isViewDialogVisible">
+    <DialogEvents OnOverlayModalClick="@OverlayClick"></DialogEvents>
+    <DialogTemplates>
+        <Header>@Loc[nameof(ResourceStrings.TextViewInfo)]</Header>
+        <Content>
+            <div class="report-container">
+                <div class="report-header">
+                    <span>Repair Service Report</span>
+                </div>
+                <div class="report-body">
+                    <table class="report-table">
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.Textref)]:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.reportNo</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextReceiveDate)]:</strong></td>
+                            <td class="report-value">@_selectedRepairService?.ServiceDate.ToString("yyyy-MM-dd HH:mm tt")</td>
+                        </tr>
+                        <tr>
+                            <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextRepairDate)]:</strong></td>
+                            <td class="report-value">
+                                @(_selectedRepairService?.repairDate.HasValue == true
+                                                                ? _selectedRepairService.repairDate.Value.ToString("yyyy-MM-dd HH:mm tt")
+                                                                : "N/A")
+                            </td>
+                        </tr>
+
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextCompanyName)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.CompanyName</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextAddress)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.Address</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextContactName)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.ContactName</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextPhoneNumber)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.PhoneNumber</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextItemName)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.itemName</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextSerialNumber)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.serialNumber</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextCustomerReq)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.CustomerRequest</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextInspection)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.Inspection</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.Textsolution)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.Solution</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextServiceLocation)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.ServiceLocation</td>
+                            </tr>
+
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextPriority)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.ServicePriority</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextStatus)]:</strong></td>
+                                <td class="report-value">@_selectedRepairService?.Status</td>
+                            </tr>
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextContract)]:</strong></td>
+                                <td class="report-value">@(_selectedRepairService?.hasContract == true ? "Yes" : "No")</td>
+                            </tr>
+
+                            <tr>
+                                <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextRepairBy)]:</strong></td>
+                                <td class="report-value">
+                                @{
+                                        var username = GetUserNameById(_selectedRepairService?.repairBy);
+                                    }
+                                    @username
+                                </td>
+                            </tr>
+                        </table>
+                        <hr />
+                        @if (_selectedRepairService?.SparePartItems != null && _selectedRepairService.SparePartItems.Count > 0)
+                        {
+                            <h4>SparePart Details</h4>
+                            <table class="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>@Loc[nameof(ResourceStrings.TextImage)]</th>
+                                        <th>@Loc[nameof(ResourceStrings.textDescription)]</th>
+                                        <th>@Loc[nameof(ResourceStrings.TextQty)]</th>
+                                        <th>@Loc[nameof(ResourceStrings.TextCondition)]</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var sparePart in _selectedRepairService.SparePartItems)
+                                    {
+                                        var sparePartObject = _spareParts.FirstOrDefault(x => x.Id == sparePart.SparePartId);
+
+                                        <tr>
+                                            <td>
+                                                @if (sparePartObject != null && !string.IsNullOrEmpty(sparePartObject.PictureUrl))
+                                                {
+                                                    <img src="@sparePartObject.PictureUrl" alt="Spare Part Image" />
+                                                }
+                                                else
+                                                {
+                                                    <span>No Image</span>
+                                                }
+                                            </td>
+                                            <td>@sparePartObject?.ItemName</td>
+                                            <td>@sparePart.UseFor</td>
+                                            <td>@sparePart.Quantity</td>
+                                            <td>@sparePart.Condition</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            </Content>
+        </DialogTemplates>
+        <DialogButtons>
+            <DialogButton Content="Close" IsPrimary="true" OnClick="@CloseDialog" />
+        </DialogButtons>
+    </SfDialog>
+
+}
+
+@code {
+    private HubConnection hubConnection;
+    private string currentUserId;
+    private string currentUserName;
+    // ✅ REMOVED: Hardcoded admin ID
+    // private readonly string adminId = "e8732e93-4881-48d6-821d-702e51764593";
+
+    // ✅ NEW: List of admin user IDs (loaded dynamically)
+    private List<string> adminUserIds = new();
+
+    // Grid and UI references
+    private SfGrid<RepairServices> MyGrid;
+    private SfDialog DialogRequestAdmin;
+    private DxReportViewer reportViewer;
+    private SfDialog DialogEdit;
+
+    // State management
+    private bool isLoading = true;
+    private bool isLoadingPage = false;
+    private bool isRequestModalVisible = false;
+    private bool isViewDialogVisible = false;
+    private string selectedRequestAction = string.Empty;
+
+    // Search and filtering
+    private string searchText = string.Empty;
+    private string activeBreakpoint { get; set; }
+    private System.Threading.Timer searchDebounceTimer;
+
+    // Selected items
+    private RepairServices _selectedRepairService = new RepairServices();
+
+    // Pagination state
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalRecords = 0;
+    private int totalPages = 0;
+    private List<RepairServices> currentPageData = new List<RepairServices>();
+
+    // Data caching
+    private Dictionary<int, List<RepairServices>> pageCache = new Dictionary<int, List<RepairServices>>();
+    private List<SparePartObject> _spareParts = new List<SparePartObject>();
+
+    // Other settings
+    public string[] ToolbarItems = new string[] { "ColumnChooser" };
+    ToastAnimationType Animation { get; set; } = ToastAnimationType.Slide;
+
+    private Dictionary<string, GlobalUserService.UserFullInfo> UserDetailsMap = new();
+    private Dictionary<string, string> _userCache = new();
+    private bool _usersLoaded = false;
+
+    private SfDialog DialogNoRecordSelected;
+    private string GetKhmerStatus(string englishStatus)
+    {
+        if (string.IsNullOrEmpty(englishStatus))
+            return string.Empty;
+
+        var statusMap = new Dictionary<string, string>
+    {
+        { "Item Recieved", "ម៉ាស៊ីនចូល" },
+        { "Inspection", "កំពុងវិនិច្ឆ័យ" },
+        { "Awaiting Customer Confirm", "រង់ចាំយល់ព្រមពីភ្ញៀវ" },
+        { "Awaiting Sparepart", "រង់ចាំគ្រឿងបន្លាស់" },
+        { "Repairing", "កំពុងជួសជុល" },
+        { "Finished", "ជួសជុលរួចរាល់" },
+        { "Customer Rejected", "អតិថិជនមិនជួសជុល" },
+        { "Unrepairable", "ជួសជុលមិនបាន" },
+        { "Repair by Third-Party", "ជួសជុលដោយជាងខាងក្រៅ" }
+    };
+
+        if (englishStatus.Contains("(Historical)"))
+        {
+            var baseStatus = englishStatus.Replace(" (Historical)", "").Trim();
+            return statusMap.ContainsKey(baseStatus)
+                ? $"{statusMap[baseStatus]} (ប្រវត្តិ)"
+                : englishStatus;
+        }
+
+        return statusMap.ContainsKey(englishStatus)
+            ? statusMap[englishStatus]
+            : englishStatus;
+    }
+    // Lookups
+    private IEnumerable<ServiceType> _serviceTypes;
+    private IEnumerable<ServicePriority> _servicePriorities;
+    private IEnumerable<ServiceStatus> _serviceStatuses;
+
+    protected override async Task OnPermissionsLoadedAsync()
+    {
+        Console.WriteLine($"🔐 RepairServicesPage - CanAccess: {CanAccess}");
+        Console.WriteLine($"🔐 RepairServicesPage - PermissionsLoaded: {PermissionsLoaded}");
+
+        if (!CanAccess)
+        {
+            Console.WriteLine("❌ Access Denied - User does not have RepairServicesPage.Access permission");
+            ShowError("You don't have permission to access this page");
+            return;
+        }
+
+        await InitializePageData();
+    }
+
+    private async Task InitializePageData()
+    {
+        try
+        {
+            Console.WriteLine("═══════════════════════════════════════");
+            Console.WriteLine("🔧 REPAIR SERVICES PAGE INITIALIZATION");
+            Console.WriteLine("═══════════════════════════════════════");
+
+            isLoading = true;
+
+            if (JwtSessionService.IsTokenExpired())
+            {
+                Console.WriteLine("❌ JWT token expired - redirecting to login");
+                Navigation.NavigateTo("/login", true);
+                return;
+            }
+
+            await LoadEssentialDataAsync();
+
+            currentUserId = JwtSessionService.GetCurrentUserId()?.ToString();
+            currentUserName = JwtSessionService.GetCurrentUsername();
+
+            if (string.IsNullOrEmpty(currentUserId) || string.IsNullOrEmpty(currentUserName))
+            {
+                Console.WriteLine("❌ No user ID or username in JWT - redirecting to login");
+                Navigation.NavigateTo("/login", true);
+                return;
+            }
+
+            Console.WriteLine($"✅ Current User: {currentUserName} ({currentUserId})");
+
+            // ✅ NEW: Load admin user IDs
+            await LoadAdminUserIdsAsync();
+
+            await LoadPageAsync(1);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(3000);
+                    await SetupSignalRAsync();
+                    Console.WriteLine("✅ Background SignalR connection established for real-time updates");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Background SignalR connection failed (non-critical): {ex.Message}");
+                    Console.WriteLine("   Real-time updates disabled, but all other features work normally");
+                }
+            });
+
+            Console.WriteLine("✅ Page initialization complete");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error initializing: {ex.Message}");
+            ShowErrorToast("Failed to initialize page");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    private async Task LoadAdminUserIdsAsync()
+    {
+        try
+        {
+            Console.WriteLine("📥 Loading admin users from JWT API");
+
+            var usersResponse = await JwtUserManagementService.GetAllUsersAsync(page: 1, pageSize: 100);
+
+            if (usersResponse?.Status == "Success" && usersResponse.Data != null)
+            {
+                // Filter users who have "Admin" role
+                adminUserIds = usersResponse.Data
+                    .Where(u => u.Roles != null && u.Roles.Any(r => r.Equals("Admin", StringComparison.OrdinalIgnoreCase)))
+                    .Select(u => u.Id)
+                    .ToList();
+
+                Console.WriteLine($"✅ Found {adminUserIds.Count} admin users");
+
+                if (adminUserIds.Count == 0)
+                {
+                    Console.WriteLine("⚠️ WARNING: No admin users found in system!");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"❌ Failed to load users: {usersResponse?.Message}");
+                adminUserIds = new List<string>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading admin users: {ex.Message}");
+            adminUserIds = new List<string>();
+        }
+    }
+    private async Task LoadAllUsersAsync()
+    {
+        if (_usersLoaded)
+            return;
+
+        try
+        {
+            Console.WriteLine("📥 Loading all users from GlobalUserService...");
+
+            // Load both the simple cache and the full details map
+            _userCache = await UserCacheService.GetUsersAsync(forceRefresh: false);
+            UserDetailsMap = await UserCacheService.GetUsersWithDetailsAsync();
+
+            _usersLoaded = true;
+            Console.WriteLine($"✅ Loaded {_userCache.Count} users into cache");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading users: {ex.Message}");
+            _userCache = new Dictionary<string, string>();
+            UserDetailsMap = new Dictionary<string, GlobalUserService.UserFullInfo>();
+        }
+    }
+
+    private async Task LoadEssentialDataAsync()
+    {
+        // ✅ Use the new dedicated method
+        await LoadAllUsersAsync();
+
+        // ✅ Verify users loaded successfully
+        if (UserDetailsMap == null || UserDetailsMap.Count == 0)
+        {
+            Console.WriteLine("⚠️ UserDetailsMap is empty, retrying with force refresh...");
+            _usersLoaded = false;
+            await LoadAllUsersAsync();
+        }
+    }
+
+    private async Task LoadPageAsync(int pageNumber, bool useCache = true)
+    {
+        try
+        {
+            if (useCache && pageCache.ContainsKey(pageNumber))
+            {
+                Console.WriteLine($"📦 Loading page {pageNumber} from cache");
+                currentPageData = pageCache[pageNumber];
+                currentPage = pageNumber;
+                StateHasChanged();
+                return;
+            }
+
+            isLoadingPage = true;
+            Console.WriteLine($"🔄 Fetching page {pageNumber} from API");
+
+            PaginatedResult<RepairServices> result;
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                result = await RepairItemService.SearchRepairServicesAsync(
+                    pageNumber: pageNumber,
+                    pageSize: pageSize,
+                    searchTerm: searchText.Trim(),
+                    sortBy: "ServiceDate",
+                    sortDescending: true
+                );
+            }
+            else
+            {
+                result = await RepairItemService.GetRepairServicesPagedAsync(
+                    pageNumber: pageNumber,
+                    pageSize: pageSize
+                );
+            }
+
+            if (result != null)
+            {
+                currentPageData = result.Items ?? new List<RepairServices>();
+                totalRecords = result.TotalCount;
+                totalPages = result.TotalPages;
+                currentPage = pageNumber;
+
+                if (!pageCache.ContainsKey(pageNumber))
+                {
+                    pageCache[pageNumber] = currentPageData;
+                }
+
+                Console.WriteLine($"✅ Loaded page {pageNumber}: {currentPageData.Count} records");
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading page: {ex.Message}");
+            ShowErrorToast($"Failed to load page");
+        }
+        finally
+        {
+            isLoadingPage = false;
+        }
+    }
+
+    private async Task SetupSignalRAsync()
+    {
+        try
+        {
+            Console.WriteLine("🔌 Setting up SignalR connection...");
+
+            // ✅ Dispose existing connection if any
+            if (hubConnection != null)
+            {
+                try
+                {
+                    await hubConnection.StopAsync();
+                    await hubConnection.DisposeAsync();
+                }
+                catch { }
+                hubConnection = null;
+            }
+
+            // ✅ GET FRESH JWT TOKEN FOR SIGNALR
+            var token = await JwtSessionService.GetOrRefreshTokenAsync();
+
+            if (string.IsNullOrEmpty(token))
+            {
+                Console.WriteLine("❌ No JWT token available for SignalR");
+                throw new Exception("Authentication required. Please log in again.");
+            }
+
+            Console.WriteLine($"🔑 JWT Token available: {token.Substring(0, Math.Min(50, token.Length))}...");
+
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/chatHub"), options =>
+                {
+                    // ✅ CRITICAL: Pass token via query string for SignalR
+                    options.AccessTokenProvider = () => Task.FromResult(token);
+
+                    // ✅ Configure transports
+                    options.Transports = HttpTransportType.WebSockets |
+                                        HttpTransportType.ServerSentEvents |
+                                        HttpTransportType.LongPolling;
+
+                    options.SkipNegotiation = false;
+                })
+                .WithAutomaticReconnect(new[]
+                {
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(10),
+                    TimeSpan.FromSeconds(30)
+                })
+                .ConfigureLogging(logging =>
+                {
+                    logging.SetMinimumLevel(LogLevel.Debug);
+                })
+                .Build();
+
+            // ✅ Add connection state handlers
+            hubConnection.Closed += async (error) =>
+            {
+                Console.WriteLine($"❌ SignalR connection closed. Error: {error?.Message}");
+            };
+
+            hubConnection.Reconnecting += async (error) =>
+            {
+                Console.WriteLine($"⚠️ SignalR reconnecting. Error: {error?.Message}");
+            };
+
+            hubConnection.Reconnected += async (connectionId) =>
+            {
+                Console.WriteLine($"✅ SignalR reconnected. Connection ID: {connectionId}");
+            };
+
+            // ✅ Setup event handlers
+            hubConnection.On<string>("ReceiveItemUpdate", async (message) =>
+            {
+                pageCache.Clear();
+                await LoadPageAsync(currentPage, useCache: false);
+                await InvokeAsync(StateHasChanged);
+            });
+
+            hubConnection.On<Guid>("BroadcastItemDelete", async (deletedItemId) =>
+            {
+                pageCache.Clear();
+                await LoadPageAsync(currentPage, useCache: false);
+                await InvokeAsync(StateHasChanged);
+            });
+
+            // ✅ START CONNECTION WITH ERROR HANDLING
+            Console.WriteLine("🔌 Starting SignalR connection...");
+            await hubConnection.StartAsync();
+            Console.WriteLine($"✅ SignalR connected! State: {hubConnection.State}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ CRITICAL: SignalR connection failed!");
+            Console.WriteLine($"   Error: {ex.Message}");
+            Console.WriteLine($"   Inner Exception: {ex.InnerException?.Message}");
+            Console.WriteLine($"   Stack: {ex.StackTrace}");
+            throw; // Re-throw so caller knows connection failed
+        }
+    }
+
+    // ✅ NEW: Show Request Modal
+    private void ShowRequestModal()
+    {
+        if (_selectedRepairService == null || _selectedRepairService.Id == Guid.Empty)
+        {
+            ShowErrorToast("Please select a service first");
+            return;
+        }
+
+        selectedRequestAction = string.Empty;
+        isRequestModalVisible = true;
+        StateHasChanged();
+    }
+
+    // ✅ NEW: Select Request Action
+    private void SelectRequestAction(string action)
+    {
+        selectedRequestAction = action;
+        StateHasChanged();
+    }
+
+    private async Task SubmitRequestToAdmin()
+    {
+        if (string.IsNullOrEmpty(selectedRequestAction))
+        {
+            ShowErrorToast("Please select an action");
+            return;
+        }
+
+        try
+        {
+            Console.WriteLine("═══════════════════════════════════════");
+            Console.WriteLine("📤 SUBMITTING REQUEST TO ADMINS VIA API");
+            Console.WriteLine($"   Action: {selectedRequestAction}");
+            Console.WriteLine($"   Service: {_selectedRepairService.reportNo}");
+            Console.WriteLine("═══════════════════════════════════════");
+
+            if (JwtSessionService.IsTokenExpired())
+            {
+                ShowErrorToast("Your session has expired. Please refresh the page and log in again.");
+                Navigation.NavigateTo("/login", true);
+                return;
+            }
+
+            // ✅ Check if we have any admin users
+            if (!adminUserIds.Any())
+            {
+                ShowErrorToast("No admin users found. Please contact system administrator.");
+                Console.WriteLine("❌ No admin users available to send request to");
+                return;
+            }
+
+            var messageText = $"Request {selectedRequestAction} - ServiceId: {_selectedRepairService.Id} - ReportNo: {_selectedRepairService.reportNo}";
+
+            // ✅ Send message to ALL admin users
+            int successCount = 0;
+            int failCount = 0;
+
+            foreach (var adminId in adminUserIds)
+            {
+                try
+                {
+                    var messageDto = new SendMessageDto
+                    {
+                        UserID = currentUserId ?? string.Empty,
+                        RecipientID = adminId,
+                        Text = messageText,
+                        UserName = currentUserName ?? "User",
+                        FileUrl = null,
+                        AudioUrl = null,
+                        ReplyToMessageId = null,
+                        ReplyToUserName = null,
+                        ReplyToText = null
+                    };
+
+                    await JwtMessageService.SendMessageAsync(messageDto);
+                    successCount++;
+                    Console.WriteLine($"✅ Message sent to admin: {adminId}");
+                }
+                catch (Exception ex)
+                {
+                    failCount++;
+                    Console.WriteLine($"⚠️ Failed to send to admin {adminId}: {ex.Message}");
+                }
+            }
+
+            if (successCount > 0)
+            {
+                Console.WriteLine($"✅ Request sent to {successCount} admin(s) successfully");
+                ShowSuccessToast($"{selectedRequestAction} request sent to {successCount} admin(s)");
+                CloseRequestModal();
+            }
+            else
+            {
+                Console.WriteLine($"❌ Failed to send request to any admins");
+                ShowErrorToast("Failed to send request to admins. Please try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ CRITICAL ERROR: {ex.Message}");
+            ShowErrorToast("An unexpected error occurred. Please try again.");
+        }
+    }
+
+    // ✅ NEW: Close Request Modal
+    private void CloseRequestModal()
+    {
+        isRequestModalVisible = false;
+        selectedRequestAction = string.Empty;
+        StateHasChanged();
+    }
+
+    private void RowSelectHandler(RowSelectEventArgs<RepairServices> args)
+    {
+        if (args.Data != null)
+        {
+            _selectedRepairService = args.Data;
+        }
+    }
+
+    private void RowDoubleClickHandler(RecordDoubleClickEventArgs<RepairServices> args)
+    {
+        if (args.RowData != null)
+        {
+            _selectedRepairService = args.RowData;
+        }
+    }
+
+    private async Task ShowRepairServiceDetails(RepairServices repairService)
+    {
+        _selectedRepairService = repairService;
+        isViewDialogVisible = true;
+        await DialogEdit.ShowAsync();
+    }
+
+    private void CloseDialog()
+    {
+        isViewDialogVisible = false;
+    }
+
+    private void OverlayClick(OverlayModalClickEventArgs args)
+    {
+        // Handle overlay clicks if needed
+    }
+
+    private async Task NextPage()
+    {
+        if (currentPage < totalPages && !isLoadingPage)
+        {
+            await LoadPageAsync(currentPage + 1);
+        }
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage > 1 && !isLoadingPage)
+        {
+            await LoadPageAsync(currentPage - 1);
+        }
+    }
+
+    private async Task GoToPage(int pageNumber)
+    {
+        if (pageNumber >= 1 && pageNumber <= totalPages && pageNumber != currentPage && !isLoadingPage)
+        {
+            await LoadPageAsync(pageNumber);
+        }
+    }
+
+    private async Task OnPageSizeChange(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int newPageSize))
+        {
+            pageSize = newPageSize;
+            currentPage = 1;
+            pageCache.Clear();
+            await LoadPageAsync(1, useCache: false);
+        }
+    }
+
+    private void OnSearchInput(InputEventArgs args)
+    {
+        searchDebounceTimer?.Dispose();
+        searchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () => await PerformSearch());
+        }, null, 500, System.Threading.Timeout.Infinite);
+    }
+
+    private async Task PerformSearch()
+    {
+        try
+        {
+            currentPage = 1;
+            pageCache.Clear();
+            await LoadPageAsync(1, useCache: false);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠ {ex.Message} not found");
+        }
+    }
+
+    private void OnActionBegin(ActionEventArgs<RepairServices> args)
+    {
+        if (args.RequestType == Syncfusion.Blazor.Grids.Action.Paging)
+        {
+            args.Cancel = true;
+        }
+    }
+
+    private string GetUserNameById(Guid? userId)
+    {
+        if (!userId.HasValue || userId.Value == Guid.Empty)
+            return "Unknown User";
+
+        // ✅ Check token expiry first
+        if (JwtSessionService.IsTokenExpired())
+            return "Session Expired";
+
+        string userIdString = userId.Value.ToString();
+
+        // ✅ Check if users are loaded
+        if (!_usersLoaded)
+            return "Loading...";
+
+        // ✅ Try local cache first (fastest)
+        if (_userCache.TryGetValue(userIdString, out string username))
+            return username;
+
+        // ✅ Fallback to UserDetailsMap for full name
+        if (UserDetailsMap.TryGetValue(userIdString, out var userInfo))
+            return userInfo.FullName;
+
+        return "Unknown User";
+    }
+    private async Task<string> GetUserPhoneNumberById(Guid? userId)
+    {
+        if (!userId.HasValue || userId.Value == Guid.Empty)
+            return "N/A";
+
+        try
+        {
+            // ✅ Check token expiry
+            if (JwtSessionService.IsTokenExpired())
+                return "Session Expired";
+
+            string userIdString = userId.Value.ToString();
+
+            // ✅ Try from cache first
+            if (UserDetailsMap.TryGetValue(userIdString, out var userInfo))
+                return userInfo.PhoneNumber ?? "N/A";
+
+            // ✅ If not in cache, reload and try again
+            Console.WriteLine($"⚠️ User {userIdString} not found in cache, reloading...");
+            _usersLoaded = false;
+            await LoadAllUsersAsync();
+
+            if (UserDetailsMap.TryGetValue(userIdString, out userInfo))
+                return userInfo.PhoneNumber ?? "N/A";
+
+            return "N/A";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error getting phone number: {ex.Message}");
+            return "Error";
+        }
+    }
+
+    private async Task ShowReportPreviewFull(RepairServices selectedRepairService)
+    {
+        if (selectedRepairService == null)
+        {
+            await DialogNoRecordSelected.ShowAsync();
+            return;
+        }
+        try
+        {
+            _selectedRepairService = selectedRepairService;
+            var report = new Report2();
+
+            string repairByUser = GetUserNameById(selectedRepairService.repairBy);
+            string verifiedByUser = GetUserNameById(selectedRepairService.verifiedBy);
+            string repairByPhone = await GetUserPhoneNumberById(selectedRepairService.repairBy);
+            string verifiedByPhone = await GetUserPhoneNumberById(selectedRepairService.verifiedBy);
+
+            if (_selectedRepairService.SparePartItems != null && _selectedRepairService.SparePartItems.Any())
+            {
+                foreach (var item in _selectedRepairService.SparePartItems)
+                {
+                    if (!item.SparePartId.HasValue || item.SparePartId.Value == Guid.Empty)
+                    {
+                        Console.WriteLine("⚠ Skipping spare part item with no SparePartId");
+                        continue;
+                    }
+                    try
+                    {
+                        var sparePartDetails = await SparePartService.GetSparePartByIdAsync(item.SparePartId.Value);
+                        if (sparePartDetails != null)
+                        {
+                            item.ItemName = sparePartDetails.ItemName;
+                            item.SerialNumber = sparePartDetails.SerialNumber;
+                            item.UseFor = sparePartDetails.UseFor;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"❌ Error fetching spare part: {ex.Message}");
+                    }
+                }
+            }
+
+            report.SetParameters(
+                _selectedRepairService,
+                _selectedRepairService.ServiceLocation,
+                _selectedRepairService.SparePartItems,
+                _selectedRepairService.hasContract,
+                repairByUser,
+                verifiedByUser,
+                repairByPhone,
+                verifiedByPhone
+            );
+
+            HideReportParameters(report);
+
+            byte[] reportData;
+            using (var ms = new MemoryStream())
+            {
+                report.ExportToPdf(ms);
+                reportData = ms.ToArray();
+            }
+
+            string sanitizedReportNo = selectedRepairService.reportNo?.Replace("/", "-").Replace("\\", "-") ?? "Report";
+            string filename = $"ServiceReport_Full_{sanitizedReportNo}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+            string base64Data = Convert.ToBase64String(reportData);
+
+            await JSRuntime.InvokeVoidAsync("blazorReportsPrint.previewReportInNewTab", base64Data, filename);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating report: {ex.Message}");
+            ToastNotificationService.ShowToast(new ToastOptions
+            {
+                ProviderName = "Error",
+                Title = "Report Error",
+                Text = $"Failed to generate report: {ex.Message}",
+                ThemeMode = ToastThemeMode.Pastel,
+                RenderStyle = ToastRenderStyle.Danger
+            });
+        }
+    }
+
+    private void HideReportParameters(Report2 report)
+    {
+        report.Parameters["Id"].Visible = false;
+        report.Parameters["ReportNumber"].Visible = false;
+        report.Parameters["CompanyName"].Visible = false;
+        report.Parameters["ContactName"].Visible = false;
+        report.Parameters["PhoneNumber"].Visible = false;
+        report.Parameters["Address"].Visible = false;
+        report.Parameters["ItemName"].Visible = false;
+        report.Parameters["SerialNumber"].Visible = false;
+        report.Parameters["CustomerRequest"].Visible = false;
+        report.Parameters["inspection"].Visible = false;
+        report.Parameters["Solution"].Visible = false;
+        report.Parameters["CompanyServiceChecked"].Visible = false;
+        report.Parameters["OnSiteChecked"].Visible = false;
+        report.Parameters["HasContract"].Visible = false;
+        report.Parameters["Datestart"].Visible = false;
+        report.Parameters["Datefinish"].Visible = false;
+        report.Parameters["RepairBy"].Visible = false;
+        report.Parameters["VerifiedBy"].Visible = false;
+        report.Parameters["RepairByPhone"].Visible = false;
+        report.Parameters["VerifiedByPhone"].Visible = false;
+    }
+
+    private async Task Print(RepairServices selectedRepairService)
+    {
+        try
+        {
+            if (selectedRepairService == null || selectedRepairService.Id == Guid.Empty)
+            {
+                ShowErrorToast("Please select a service to print");
+                return;
+            }
+
+            Console.WriteLine($"🖨️ Printing report for: {selectedRepairService.CompanyName}");
+
+            _selectedRepairService = selectedRepairService;
+            var report = new Report2();
+
+            string repairByUser = GetUserNameById(selectedRepairService.repairBy);
+            string verifiedByUser = GetUserNameById(selectedRepairService.verifiedBy);
+            string repairByPhone = await GetUserPhoneNumberById(selectedRepairService.repairBy);
+            string verifiedByPhone = await GetUserPhoneNumberById(selectedRepairService.verifiedBy);
+
+            if (_selectedRepairService.SparePartItems != null && _selectedRepairService.SparePartItems.Any())
+            {
+                foreach (var item in _selectedRepairService.SparePartItems)
+                {
+                    if (!item.SparePartId.HasValue || item.SparePartId.Value == Guid.Empty)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var sparePartDetails = await SparePartService.GetSparePartByIdAsync(item.SparePartId.Value);
+                        if (sparePartDetails != null)
+                        {
+                            item.ItemName = sparePartDetails.ItemName;
+                            item.SerialNumber = sparePartDetails.SerialNumber;
+                            item.UseFor = sparePartDetails.UseFor;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"❌ Error fetching spare part: {ex.Message}");
+                    }
+                }
+            }
+
+            report.SetParameters(
+                _selectedRepairService,
+                _selectedRepairService.ServiceLocation,
+                _selectedRepairService.SparePartItems,
+                _selectedRepairService.hasContract,
+                repairByUser,
+                verifiedByUser,
+                repairByPhone,
+                verifiedByPhone
+            );
+
+            HideReportParameters(report);
+
+            byte[] reportData;
+            using (var ms = new MemoryStream())
+            {
+                report.ExportToPdf(ms);
+                reportData = ms.ToArray();
+            }
+
+            string sanitizedReportNo = selectedRepairService.reportNo?.Replace("/", "-").Replace("\\", "-") ?? "Report";
+            string filename = $"ServiceReport_{sanitizedReportNo}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+            string base64Data = Convert.ToBase64String(reportData);
+
+            await JSRuntime.InvokeVoidAsync("blazorReportsPrint.printReport", base64Data, filename);
+
+            ShowSuccessToast("Report generated successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error generating report: {ex.Message}");
+            ShowErrorToast($"Failed to generate report: {ex.Message}");
+        }
+    }
+
+    public async Task ExportToExcel()
+    {
+        if (MyGrid != null)
+        {
+            await MyGrid.ExportToExcelAsync();
+            ShowSuccessToast("Exported to Excel successfully");
+        }
+    }
+
+    public async Task ExportToPdf()
+    {
+        if (MyGrid != null)
+        {
+            await MyGrid.ExportToPdfAsync();
+            ShowSuccessToast("Exported to PDF successfully");
+        }
+    }
+
+    private void ShowErrorToast(string message)
+    {
+        ToastNotificationService.ShowToast(new ToastOptions
+        {
+            ProviderName = "Customization",
+            Title = "Error",
+            Text = message,
+            ThemeMode = ToastThemeMode.Pastel,
+            RenderStyle = ToastRenderStyle.Danger
+        });
+    }
+
+    private void ShowSuccessToast(string message)
+    {
+        ToastNotificationService.ShowToast(new ToastOptions
+        {
+            ProviderName = "Customization",
+            Title = "Success",
+            Text = message,
+            ThemeMode = ToastThemeMode.Pastel,
+            RenderStyle = ToastRenderStyle.Success
+        });
+    }
+
+    public void Dispose()
+    {
+        searchDebounceTimer?.Dispose();
+        hubConnection?.DisposeAsync();
+    }
+}

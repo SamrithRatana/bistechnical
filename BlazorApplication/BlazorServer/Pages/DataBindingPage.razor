@@ -1,0 +1,42 @@
+﻿@page "/DataBindingPage"
+
+<h3>DataBindingPage</h3>
+
+<h2>One way Binding</h2>
+
+<h4>get name from  protected string Name { get; set; } = "Tom"; call call add gmail Name</h4>
+ <div>
+    <b>Name :</b> @Name
+</div>
+<h4>get name from  protected string Gender { get; set; } = "Male"; condition value</h4>
+<div>
+    <b>Name with salutation:</b> @(Gender == "Male" ? $"Mr. {Name}" : $"Miss. {Name}")
+</div>
+<h4>get name into input</h4>
+<div>
+    <b>Name :</b> <input value="@Name" />
+</div>
+<h4>get name into input and input new value change all </h4>
+<div>
+    <b>Name :</b><input value="@Name" @onchange="@(e => { Name = e.Value.ToString(); })" />
+</div>
+<br />
+<h2>Two way Binding</h2>
+<h4>get name just add bind input change all  </h4>
+<b>Name :</b><input @bind="Name" />
+<h4>get name when input all value change too  </h4>
+<b>Name :</b><input @bind="Name" @bind:event="oninput" />
+<h4>bind get value color object  protected string Colour { get; set; } = "background-color:white"; </h4>
+<b>Colour :</b><input @bind="Colour" @bind:event="oninput" />
+<div @bind-style="Colour" @bind-style:event="onchange">
+    <h3>The background colour of this text changes</h3>
+</div>
+<h4>bind count string in textarea using two way</h4>
+<div>
+    <textarea @bind="Description" @bind:event="oninput" />
+</div>
+<div>
+    Count : @Description.Length
+</div>
+
+

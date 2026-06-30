@@ -1,0 +1,309 @@
+﻿.property-panel-section .property-panel-content td {
+    padding: 0 0 15px 0;
+}
+
+.tile_layout.card-control-section .e-error {
+    height: 100px;
+    width: 100%;
+}
+
+    .tile_layout.card-control-section .e-error .e-error-content {
+        color: red;
+        line-height: 100px;
+        text-align: center;
+    }
+
+.tile_layout.card-control-section .e-card .e-card-image {
+    height: 180px;
+    width: inherit;
+}
+
+.tile_layout.card-control-section .e-card .e-card-header .e-card-header-caption .e-card-header-title {
+    font-size: 20px;
+    font-family: Helvetica, 'Segoe UI';
+    font-weight: bold;
+}
+
+.tile_layout.card-control-section .e-card .e-card-header .e-card-header-caption .e-card-sub-title {
+    padding-top: 5px;
+}
+
+.tile_layout.card-control-section .e-card .e-card-content {
+    padding-top: 0px;
+    height: 110px;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+    .pagination-controls span {
+        margin: 0 10px;
+        font-size: 18px;
+    }
+
+.status-active {
+    color: #28A745;
+}
+
+.custom-button {
+    background-color: #007BFF; /* Blue color */
+    color: white;
+    transition: background-color 0.3s ease; /* Smooth transition for hover */
+}
+
+    .custom-button:hover {
+        background-color: #0056b3; /* Darker blue shade for hover */
+        color: white;
+    }
+
+.card_sample {
+    max-width: 350px; /* Adjust the max width as per your design */
+    margin: auto; /* Centers the card horizontally */
+    padding: 10px;
+}
+
+.e-card {
+    width: 300px; /* Set fixed width */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Optional: Adds a subtle shadow for a modern look */
+    border-radius: 8px; /* Optional: Adds rounded corners */
+    margin: 0 auto; /* Centers the card inside its container */
+}
+
+
+
+    /* Ensures the image inside the card fits well without getting too large */
+    .e-card .e-card-image {
+        height: 180px; /* Adjust the height to your preference */
+        width: 100%; /* The image will take the full width of the card */
+        object-fit: cover; /* Ensures the image fits inside the container without distortion */
+        max-height: 180px; /* Maximum height to prevent the image from becoming too large */
+        object-position: center; /* Ensures the image is centered if it’s larger than the container */
+    }
+
+
+    .e-card .e-card-header-caption .e-card-header-title {
+        font-size: 16px; /* Slightly smaller font size for the title */
+        font-family: Helvetica, 'Segoe UI';
+        font-weight: bold;
+    }
+
+
+    .e-card .e-card-header-caption .e-card-sub-title {
+        font-size: 14px; /* Smaller font for subtitle */
+        padding-top: 5px;
+    }
+
+    .e-card .e-card-content {
+        padding-top: 0px;
+        height: auto; /* Let height adjust dynamically */
+        font-size: 12px; /* Smaller font size for the content */
+        line-height: 1.4; /* Adjust line height for better readability */
+    }
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+    .pagination-controls span {
+        margin: 0 10px;
+        font-size: 18px;
+    }
+
+.status-active {
+    color: #28A745;
+}
+.view-icon {
+    background-color: transparent;
+    border: none;
+    color: #007BFF; /* Blue color */
+    font-size: 13px;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: color 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+}
+
+.view-icon:hover {
+    color: #0056b3; /* Darker blue shade for hover */
+}
+
+.view-icon i {
+    margin-right: 5px; /* Add space between the icon and text */
+}
+.property-section {
+    margin-left: auto; /* Aligns to the right side of the container */
+    margin-right: 0; /* Removes any right margin */
+    width: auto; /* Allows the section to adjust width based on content */
+    max-width: 300px; /* Optional: limits the max width */
+}
+
+.property-panel-section {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+@media (max-width: 768px) {
+    .card_sample, .e-card {
+        width: 100%; /* Makes the card full width on smaller screens */
+    }
+}
+
+@media (min-width: 769px) {
+    .card_sample, .e-card {
+        width: 300px; /* Restores the fixed width for larger screens */
+    }
+}
+/* Overall Dialog Styling */
+.sfdialog {
+    font-family: Helvetica, 'Segoe UI', sans-serif;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    background-color: #fff;
+}
+
+/* Table styling */
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background-color: #;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+    .report-table th, .report-table td {
+        padding: 12px 15px;
+        text-align: left;
+        font-size: 14px;
+        color: #333;
+    }
+
+    .report-table th {
+        background-color: #33A7D0; /* Updated header color */
+        color: white;
+        font-weight: bold;
+    }
+
+
+    .report-table td {
+        color: #555;
+    }
+
+/* Responsive Styles for Table */
+@media (max-width: 768px) {
+    .report-table th, .report-table td {
+        font-size: 12px;
+        padding: 10px 12px;
+    }
+
+    .report-table {
+        margin-bottom: 20px;
+    }
+
+        .report-table td {
+            word-wrap: break-word;
+            white-space: normal;
+        }
+
+    .report-label {
+        font-weight: bold;
+    }
+}
+
+/* Adjust Image inside Table */
+.report-table img {
+    max-width: 50px;
+    max-height: 50px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+/* Adjust header of the dialog */
+.report-header {
+    padding: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    border-radius: 8px;
+}
+
+/* Improve button styling */
+.sfdialog .e-btn {
+    background-color: #007BFF;
+    color: white;
+    border-radius: 5px;
+    padding: 10px 15px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+    .sfdialog .e-btn:hover {
+        background-color: #0056b3;
+    }
+
+/* For the status indicator */
+.status-active {
+    color: #28A745;
+}
+
+/* Custom styling for view icon */
+.view-icon {
+    background-color: transparent;
+    border: none;
+    color: #007BFF;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: color 0.3s ease;
+}
+
+    .view-icon:hover {
+        color: #0056b3;
+    }
+
+    .view-icon i {
+        margin-right: 5px;
+    }
+@keyframes slideOut {
+    0% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+}
+
+@keyframes slideIn {
+    0% {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.slide-out {
+    animation: slideOut 0.5s forwards;
+}
+
+.slide-in {
+    animation: slideIn 0.5s forwards;
+}

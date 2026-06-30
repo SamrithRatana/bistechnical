@@ -1,0 +1,66 @@
+﻿@page "/waiting"
+
+<div class="waiting-page">
+    <div class="waiting-container">
+        <div class="spinner"></div>
+        <p class="waiting-text">Our team will be processing more in V2.</p>
+    </div>
+</div>
+
+@code {
+   
+}
+<style>
+    /* Container styles for the waiting page */
+.waiting-page {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f0f4f8; /* Soft, modern light background */
+    font-family: 'Poppins', sans-serif; /* Use a modern, rounded font */
+    margin: 0;
+}
+bv
+.waiting-container {
+    text-align: center;
+    padding: 40px;
+    border-radius: 15px;
+    background-color: white;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); /* More pronounced shadow for depth */
+    animation: fadeIn 1.5s ease-out;
+    max-width: 400px; /* Limit max width to prevent excessive stretch on large screens */
+    width: 100%;
+}
+
+/* Soft and smooth spinner */
+.spinner {
+    border: 8px solid #f3f3f3; /* Light grey */
+    border-top: 8px solid #6c5ce7; /* Soft purple for spinner color */
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1.5s linear infinite;
+    margin-bottom: 30px;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Increase size of the spinner when hovered */
+.spinner:hover {
+    transform: scale(1.1);
+}
+
+/* Text style with a modern font weight and size */
+.waiting-text {
+    font-size: 20px;
+    color: #333;
+    font-weight: 600; /* Slightly bolder text for emphasis */
+    letter-spacing: 0.5px;
+    line-height: 1.5;
+    opacity: 0;
+    animation: fadeInText 1s ease-out 0.5s forwards;
+}
+
+
+
+</style>

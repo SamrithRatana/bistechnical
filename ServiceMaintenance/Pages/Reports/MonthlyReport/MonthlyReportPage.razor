@@ -1,0 +1,1667 @@
+﻿@page "/monthly-report"
+@using System.Linq.Expressions
+@using DXApplication1
+@using ServiceMaintenance.Models
+@using ServiceMaintenance.Pages.Reports
+@using ServiceMaintenance.Services
+@inject RepairItemService RepairService
+@inject UserService UserService
+@inject IJSRuntime JSRuntime
+@inject ServiceSparePart SparePartService
+@inject CustomerService CustomerService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inherits PermissionBase
+@{
+    bool enableAdaptiveUIMode = false;
+    RowDirection renderingMode = RowDirection.Vertical;
+
+    if (activeBreakpoint == "Small")
+    {
+        enableAdaptiveUIMode = true;
+        renderingMode = RowDirection.Vertical;
+    }
+    else if (activeBreakpoint == "Medium")
+    {
+        enableAdaptiveUIMode = true;
+        renderingMode = RowDirection.Horizontal;
+    }
+    else
+    {
+        enableAdaptiveUIMode = false;
+    }
+}
+@if (CanAccess)
+{
+<DxToastProvider Name="Customization"
+                 MaxToastCount="5"
+                 HorizontalAlignment="HorizontalAlignment.Right"
+                 VerticalAlignment="VerticalEdge.Top"
+                 AnimationType="@Animation" />
+<DxToastProvider Name="Error"
+                 MaxToastCount="5"
+                 HorizontalAlignment="HorizontalAlignment.Right"
+                 VerticalAlignment="VerticalEdge.Top"
+                 AnimationType="@Animation" />
+
+<div class="card shadow-sm rounded-lg">
+    <div class="card-body">
+        <DxToolbar ItemRenderStyleMode="ToolbarRenderStyleMode.Plain">
+            <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextNew)]" IconCssClass="far fa-file" CssClass="toolbar-item" Enabled="false" />
+            <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextEdit)]" IconCssClass="far fa-edit" CssClass="toolbar-item" Enabled="false" />
+            <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextDelete)]" IconCssClass="fas fa-trash-alt" CssClass="toolbar-item" Enabled="false" />
+            <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextExport)]" IconCssClass="fas fa-download">
+                <Items>
+                    <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextToExcel)]" Click="ExportToExcel" IconCssClass="fas fa-file-excel" />
+                    <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextToPdf)]" Click="ShowReportPreview2" IconCssClass="fas fa-file-pdf" />
+                </Items>
+            </DxToolbarItem>
+            <DxToolbarItem Text="Print Report" Click="ShowReportPreview" CssClass="toolbar-item" IconCssClass="fas fa-print" />
+            <DxToolbarItem Text="@Loc[nameof(ResourceStrings.TextCheckList)]" CssClass="toolbar-item" IconCssClass="fas fa-check-circle" Enabled="false" />
+        </DxToolbar>
+    </div>
+</div>
+
+<hr />
+
+<div class="container">
+    <div class="row mb-2">
+        <div class="col-md-12 text-end">
+            <i class="fa @(IsFilterSectionVisible ? "fa-chevron-up" : "fa-chevron-down")"
+               @onclick="ToggleFilterSection"
+               style="cursor: pointer; font-size: 20px; color: #333;">
+            </i>
+        </div>
+    </div>
+
+    <div class="filter-section container" style="@($"display: {(IsFilterSectionVisible ? "block" : "none")};")">
+        <div class="row align-items-end g-2">
+            <div class="col-md-3">
+                <label for="filterStartDate" class="font-weight-bold">@Loc[nameof(ResourceStrings.Textfrom)]:</label>
+                <SfDatePicker TValue="DateTime" @ref="@DateObj1" @bind-Value="StartDate" id="filterStartDate" class="form-control" Format="dd/MM/yyyy">
+                    <DatePickerEvents TValue="DateTime" Focus="FocusHandler1"></DatePickerEvents>
+                </SfDatePicker>
+            </div>
+            <div class="col-md-3">
+                <label for="filterEndDate" class="font-weight-bold">@Loc[nameof(ResourceStrings.TextTo)]:</label>
+                <SfDatePicker TValue="DateTime" @ref="@DateObj2" @bind-Value="EndDate" id="filterEndDate" class="form-control" Format="dd/MM/yyyy">
+                    <DatePickerEvents TValue="DateTime" Focus="FocusHandler2"></DatePickerEvents>
+                </SfDatePicker>
+            </div>
+
+            <div class="col-md-2">
+                <label for="serviceLocationFilter" class="font-weight-bold">Service Location:</label>
+                <InputSelect @bind-Value="SelectedServiceLocation" id="serviceLocationFilter" class="form-control">
+                    @foreach (var location in ServiceLocationOptions)
+                    {
+                        <option value="@location">@location</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="col-md-2">
+                <label for="customerTypeFilter" class="font-weight-bold">Customer Type:</label>
+                <SfComboBox TValue="string"
+                            TItem="CustomerService.CustomerTypeDto"
+                            @bind-Value="SelectedCustomerType"
+                            DataSource="@CustomerTypes"
+                            Placeholder="Select or search..."
+                            AllowFiltering="true"
+                            FilterType="Syncfusion.Blazor.DropDowns.FilterType.Contains"
+                            PopupHeight="300px"
+                            id="customerTypeFilter"
+                            CssClass="form-control">
+                    <ComboBoxFieldSettings Text="Type" Value="Type"></ComboBoxFieldSettings>
+                    <ComboBoxEvents TValue="string"
+                                    TItem="CustomerService.CustomerTypeDto"
+                                    Filtering="OnCustomerTypeFiltering">
+                    </ComboBoxEvents>
+                </SfComboBox>
+            </div>
+
+            <div class="col-md-2 text-end">
+                <button class="btn btn-primary" @onclick="FetchReport" disabled="@IsLoading">
+                    @if (IsLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    @Loc[nameof(ResourceStrings.TextFetchReport)]
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr />
+
+
+    @if (IsLoading)
+    {
+        <div class="text-center p-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading report data...</p>
+        </div>
+    }
+    else if (FilteredRepairServices.Count == 0)
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            No data available for the selected criteria. Please adjust your filters and try again.
+        </div>
+    }
+    else
+    {
+
+
+        <SfGrid DataSource="UniqueCustomerTypeRepairServices"
+                AllowSorting="true"
+                ShowColumnChooser="true"
+                EnableAdaptiveUI="@enableAdaptiveUIMode"
+                RowRenderingMode="@renderingMode"
+                SelectionMode="GridSelectionMode.Single"
+                Toolbar="@ToolbarItems"
+                AllowResizing="true"
+                Height="auto"
+                AllowSelection="true">
+
+            <GridEvents RowSelected="RowSelectHandler" OnRecordDoubleClick="RowDoubleClickHandler" TValue="RepairServices"></GridEvents>
+
+            <GridTemplates>
+                <DetailTemplate Context="detailContext">
+                    @{
+                        var item = detailContext as RepairServices;
+                        var customerType = item?.CustomerType ?? "Unknown";
+
+                        // Get paginated data for this customer type (will initialize if needed)
+                        var detailGridData = GetDetailGridData(customerType);
+                        var detailCurrentPage = GetDetailGridCurrentPage(customerType);
+                        var detailPageSize = GetDetailGridPageSize(customerType);
+                        var detailTotalRecords = GetDetailGridTotalRecords(customerType);
+                        var detailTotalPages = GetDetailGridTotalPages(customerType);
+                        var detailHasPrevious = HasDetailGridPreviousPage(customerType);
+                        var detailHasNext = HasDetailGridNextPage(customerType);
+                    }
+
+                    <div class="detail-grid-container p-3" @key="@customerType">
+                        <!-- Detail Grid -->
+                        <SfGrid DataSource="@detailGridData"
+                                AllowSorting="true"
+                                Height="300"
+                                EnableAdaptiveUI="@enableAdaptiveUIMode"
+                                RowRenderingMode="@renderingMode"
+                                SelectionMode="GridSelectionMode.Single"
+                                AllowResizing="true"
+                                AllowSelection="true">
+                            <GridColumns>
+                                <GridColumn Field="CompanyName" HeaderText="@Loc[nameof(ResourceStrings.TextCompanyName)]" Width="300"></GridColumn>
+                                <GridColumn Field="itemName" HeaderText="@Loc[nameof(ResourceStrings.TextItemName)]" Width="250"></GridColumn>
+                                <GridColumn Field="serialNumber" HeaderText="@Loc[nameof(ResourceStrings.TextSerialNumber)]" Width="150"></GridColumn>
+                                <GridColumn Field="CustomerType" HeaderText="Customer Type" Width="120"></GridColumn>
+
+                                <GridColumn HeaderText="Sparepart Items" Field="SparePartItems" Width="250">
+                                    <Template Context="columnContext">
+                                        @if ((columnContext as RepairServices)?.SparePartItems?.Any() != true)
+                                        {
+                                            <div>ជួសជុលមិនគិតលុយ</div>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var spItem in (columnContext as RepairServices)?.SparePartItems ?? Enumerable.Empty<SparePartItem>())
+                                            {
+                                                var sparePartObject = _spareParts.FirstOrDefault(sp => sp.Id == spItem.SparePartId);
+                                                <div>
+                                                    @sparePartObject?.ItemName - @spItem.Quantity - @spItem.Description $
+                                                </div>
+                                            }
+                                        }
+                                    </Template>
+                                </GridColumn>
+
+                                <GridColumn HeaderText="@Loc[nameof(ResourceStrings.TextAction)]" IsFrozen="true" Freeze="FreezeDirection.Right" Width="150">
+                                    <Template Context="columnContext">
+                                        @if ((columnContext as RepairServices)?.ServiceDate != null)
+                                        {
+                                            <DxButton IconCssClass="fas fa-eye"
+                                                      CssClass="icon-button info"
+                                                      RenderStyle="ButtonRenderStyle.Info"
+                                                      RenderStyleMode="ButtonRenderStyleMode.Text"
+                                                      Text="@Loc[nameof(ResourceStrings.TextView)]"
+                                                      @onclick="() => ShowRepairServiceDetails(columnContext as RepairServices)" />
+                                        }
+                                    </Template>
+                                </GridColumn>
+                            </GridColumns>
+                        </SfGrid>
+
+                        <!-- Pagination Controls - Bottom -->
+                        <div class="d-flex justify-content-between align-items-center mt-3" @key="@($"pagination-{customerType}")">
+                            <div>
+                                <strong>Showing @((detailCurrentPage - 1) * detailPageSize + 1) to @Math.Min(detailCurrentPage * detailPageSize, detailTotalRecords) of @detailTotalRecords records</strong>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="me-2">Page Size:</label>
+                                <select class="form-select form-select-sm"
+                                        style="width: 80px;"
+                                        value="@detailPageSize"
+                                        @onchange="(e) => OnDetailGridPageSizeChanged(customerType, e)"
+                                        @onclick:stopPropagation="true">
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+
+                                <div class="btn-group ms-3" role="group">
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => DetailGridFirstPage(customerType)"
+                                            @onclick:stopPropagation="true"
+                                            disabled="@(!detailHasPrevious)">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => DetailGridPreviousPage(customerType)"
+                                            @onclick:stopPropagation="true"
+                                            disabled="@(!detailHasPrevious)">
+                                        <i class="fas fa-angle-left"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" disabled>
+                                        @detailCurrentPage / @detailTotalPages
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => DetailGridNextPage(customerType)"
+                                            @onclick:stopPropagation="true"
+                                            disabled="@(!detailHasNext)">
+                                        <i class="fas fa-angle-right"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => DetailGridLastPage(customerType)"
+                                            @onclick:stopPropagation="true"
+                                            disabled="@(!detailHasNext)">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </DetailTemplate>
+            </GridTemplates>
+
+            <GridColumns>
+                <GridColumn Field="CustomerType" HeaderText="Customer Type" Width="250"></GridColumn>
+
+                <GridColumn HeaderText="Fixed" Width="100">
+                    <Template Context="columnContext">
+                        @{
+                            var item = columnContext as RepairServices;
+                            var customerType = item?.CustomerType ?? "Unknown";
+                            var count = FilteredRepairServices
+                            .Count(r => (r.CustomerType ?? "Unknown") == customerType && r.Status == "Finished");
+                        }
+                        @count
+                    </Template>
+                </GridColumn>
+
+                <GridColumn HeaderText="Customer Reject" Width="100">
+                    <Template Context="columnContext">
+                        @{
+                            var item = columnContext as RepairServices;
+                            var customerType = item?.CustomerType ?? "Unknown";
+                            var count = FilteredRepairServices
+                            .Count(r => (r.CustomerType ?? "Unknown") == customerType && r.Status == "Customer Rejected");
+                        }
+                        @count
+                    </Template>
+                </GridColumn>
+
+                <GridColumn HeaderText="Unrepairable" Width="100">
+                    <Template Context="columnContext">
+                        @{
+                            var item = columnContext as RepairServices;
+                            var customerType = item?.CustomerType ?? "Unknown";
+                            var count = FilteredRepairServices
+                            .Count(r => (r.CustomerType ?? "Unknown") == customerType && r.Status == "Unrepairable");
+                        }
+                        @count
+                    </Template>
+                </GridColumn>
+            </GridColumns>
+        </SfGrid>
+
+        <SfGrid @ref="MyGrid" DataSource="FilteredRepairServices"
+                PageSize="10"
+                AllowSorting="true"
+                ShowColumnChooser="true"
+                EnableAdaptiveUI="@enableAdaptiveUIMode"
+                RowRenderingMode="@renderingMode"
+                SelectionMode="GridSelectionMode.Single"
+                AllowExcelExport="true"
+                Height="0"
+                AllowSelection="true">
+            <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+            <GridEvents RowSelected="RowSelectHandler" OnRecordDoubleClick="RowDoubleClickHandler" TValue="RepairServices"></GridEvents>
+
+            <GridColumns>
+                <GridColumn Field="CompanyName" HeaderText="Number of Items Fixed" Width="500"></GridColumn>
+                <GridColumn Field="ServiceDate" HeaderText="ServiceDate" Width="500" Format="dd/MM/yyyy" Visible="false"></GridColumn>
+                <GridColumn Field="ServiceLocation" HeaderText="ServiceLocation" Width="500" Visible="false"></GridColumn>
+                <GridColumn Field="Address" HeaderText="Address" Width="500" Visible="false"></GridColumn>
+                <GridColumn Field="itemName" HeaderText="ItemName" Width="500" Visible="false"></GridColumn>
+                <GridColumn Field="serialNumber" HeaderText="SerialNumber" Width="500" Visible="false"></GridColumn>
+                <GridColumn Field="CustomerRequest" HeaderText="CustomerRequest" Width="500" Visible="false"></GridColumn>
+                <GridColumn Field="Inspection" HeaderText="inspection" Width="500" Visible="false"></GridColumn>
+                <GridColumn Field="Solution" HeaderText="Solution" Width="500" Visible="false"></GridColumn>
+                <GridColumn Field="SparePartExcelSummary" HeaderText="SparePart" Width="500" Visible="false"></GridColumn>
+            </GridColumns>
+
+            <GridAggregates>
+                <GridAggregate>
+                    <GridAggregateColumns>
+                        <GridAggregateColumn Field="CompanyName" Type="AggregateType.Custom">
+                            <FooterTemplate>
+                                @{
+                                    var finishedCount = FilteredRepairServices.Count(s => s.Status == "Finished");
+                                    var customerRejectedCount = FilteredRepairServices.Count(s => s.Status == "Customer Rejected");
+                                    var unrepairableCount = FilteredRepairServices.Count(s => s.Status == "Unrepairable");
+                                }
+                                <div style="display: flex; justify-content: space-between; width: 63%; align-items: center;">
+                                    <div style="text-align: left; flex-grow: 1;">
+                                        <strong>Total Fixed:</strong>
+                                        <strong style="font-weight: 900;">@finishedCount</strong>
+                                    </div>
+                                    <div style="text-align: right; padding-left: 20px;">
+                                        <strong>Total Customer Rejected:</strong>
+                                        <strong style="font-weight: 900;">@customerRejectedCount</strong>
+                                    </div>
+                                    <div style="text-align: right; padding-left: 300px;">
+                                        <strong>Total Unrepairable:</strong>
+                                        <strong style="font-weight: 900;">@unrepairableCount</strong>
+                                    </div>
+                                </div>
+                            </FooterTemplate>
+                        </GridAggregateColumn>
+                    </GridAggregateColumns>
+                </GridAggregate>
+            </GridAggregates>
+        </SfGrid>
+
+    }
+
+    <!-- View Details Dialog -->
+    <SfDialog @ref="DialogEdit" Target="#target" Width="600px" IsModal="true" ShowCloseIcon="true" @bind-Visible="@isViewDialogVisible">
+        <DialogEvents OnOverlayModalClick="@OverlayClick"></DialogEvents>
+        <DialogTemplates>
+            <Header>@Loc[nameof(ResourceStrings.TextViewInfo)]</Header>
+            <Content>
+                <div class="report-container">
+                    <div class="report-header">
+                        <span>Repair Service Report</span>
+                    </div>
+                    <div class="report-body">
+                        <table class="report-table">
+                            @if (_selectedRepairService?.reportNo != null)
+                            {
+                                <tr>
+                                    <td class="report-label"><strong>@Loc[nameof(ResourceStrings.Textref)]:</strong></td>
+                                    <td class="report-value">@_selectedRepairService?.reportNo</td>
+                                </tr>
+                            }
+                            @if (_selectedRepairService?.ServiceDate != null)
+                            {
+                                <tr>
+                                    <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextReceiveDate)]:</strong></td>
+                                    <td class="report-value">@_selectedRepairService?.ServiceDate.ToString("yyyy-MM-dd HH:mm tt")</td>
+                                </tr>
+                            }
+                            @if (_selectedRepairService?.repairDate.HasValue == true)
+                            {
+                                <tr>
+                                    <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextRepairDate)]:</strong></td>
+                                    <td class="report-value">@_selectedRepairService.repairDate.Value.ToString("yyyy-MM-dd HH:mm tt")</td>
+                                </tr>
+                            }
+                            @if (_selectedRepairService?.finishedDate.HasValue == true)
+                            {
+                                <tr>
+                                    <td class="report-label"><strong>@Loc[nameof(ResourceStrings.TextFinishDate)]:</strong></td>
+                                    <td class="report-value">@_selectedRepairService.finishedDate.Value.ToString("yyyy-MM-dd HH:mm tt")</td>
+                                </tr>
+                            }
+                            <!-- Add other fields as needed -->
+                        </table>
+                    </div>
+                </div>
+            </Content>
+        </DialogTemplates>
+        <DialogButtons>
+            <DialogButton Content="Close" IsPrimary="true" OnClick="@CloseDialog" />
+        </DialogButtons>
+    </SfDialog>
+
+    <SfDialog @ref="DialogNoRecordSelected" IsModal="true" Width="250px" ShowCloseIcon="true" Visible="false">
+        <DialogTemplates>
+            <Header> Warning! </Header>
+            <Content> @Loc[nameof(ResourceStrings.TextSelectRecord)] </Content>
+        </DialogTemplates>
+        <DialogButtons>
+            <DialogButton Content="OK" IsPrimary="true" OnClick="CloseDialogNoRecordSelected" />
+        </DialogButtons>
+    </SfDialog>
+}
+
+
+@code {
+    private DateTime StartDate = DateTime.Today;
+    private DateTime EndDate = DateTime.Today;
+    private List<RepairServices> FilteredRepairServices = new();
+    private RepairServices _selectedRepairService;
+    private Dictionary<string, string> UserMap = new();
+    private Dictionary<string, string> _userCache = new();
+    private bool _usersLoaded = false;
+    private IEnumerable<SparePartObject> _spareParts = Enumerable.Empty<SparePartObject>();
+    private bool isViewDialogVisible = false;
+    private SfDialog DialogEdit;
+    public string[] ToolbarItems = new string[] { "ColumnChooser", "Search" };
+    private SfGrid<RepairServices> MyGrid;
+    private string CurrentUserName;
+    private SfDialog DialogNoRecordSelected;
+    private bool IsFilterSectionVisible = true;
+    private string activeBreakpoint { get; set; }
+    SfDatePicker<DateTime> DateObj1;
+    SfDatePicker<DateTime> DateObj2;
+    private string SelectedCustomerType = "All";
+    private List<string> CustomerTypeOptions = new() { "All" };
+    private bool IsLoading = false;
+    ToastAnimationType Animation { get; set; } = ToastAnimationType.Slide;
+    private string SelectedServiceLocation = "All";
+    private List<string> ServiceLocationOptions = new() { "All", "OnSite", "CompanyService" };
+    private int CurrentPage = 1;
+    private int PageSize = 10;
+    private int TotalRecords = 0;
+    private int TotalPages => TotalRecords > 0 ? (int)Math.Ceiling(TotalRecords / (double)PageSize) : 0;
+    private bool HasPreviousPage => CurrentPage > 1;
+    private bool HasNextPage => CurrentPage < TotalPages;
+    private bool HasSearched = false;
+    private DateTime _lastStartDate;
+    private DateTime _lastEndDate;
+    private string _lastServiceLocation = "All";
+    private string _lastCustomerType = "All";
+    private List<CustomerService.CustomerTypeDto> CustomerTypes = new();
+    private int CustomerTypeCurrentPage = 1;
+    private const int CustomerTypePageSize = 10;
+    private bool HasMoreCustomerTypes = true;
+    private Dictionary<Guid, SparePartObject> _sparePartsCache = new();
+    private Dictionary<string, int> DetailGridCurrentPages = new();
+    private Dictionary<string, int> DetailGridPageSizes = new();
+    private Dictionary<string, List<RepairServices>> DetailGridData = new();
+    private Dictionary<string, int> DetailGridTotalRecords = new();
+    private const int DefaultDetailPageSize = 10;
+
+    private IEnumerable<RepairServices> UniqueCustomerTypeRepairServices =>
+        FilteredRepairServices
+            .GroupBy(r => r.CustomerType ?? "Unknown")
+            .Select(g => g.First())
+            .ToList();
+
+    public async void FocusHandler1(Syncfusion.Blazor.Calendars.FocusEventArgs args)
+    {
+        await this.DateObj1.ShowPopupAsync();
+    }
+
+    public async void FocusHandler2(Syncfusion.Blazor.Calendars.FocusEventArgs args)
+    {
+        await this.DateObj2.ShowPopupAsync();
+    }
+
+    private void ToggleFilterSection()
+    {
+        IsFilterSectionVisible = !IsFilterSectionVisible;
+    }
+    protected override async Task OnPermissionsLoadedAsync()
+    {
+        Console.WriteLine($"🔐 DailyReportPage - CanAccess: {CanAccess}");
+        Console.WriteLine($"🔐 DailyReportPage - PermissionsLoaded: {PermissionsLoaded}");
+
+        if (!CanAccess)
+        {
+            Console.WriteLine("❌ Access Denied - User does not have DailyReportPage.Access permission");
+            ShowError("You don't have permission to access this page");
+            return; // Stop initialization
+        }
+
+        // Only continue with initialization if user has access
+        await InitializePageData();
+    }
+
+    // ✅ STEP 3: Move your initialization logic here
+    private async Task InitializePageData()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authenticationState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            CurrentUserName = user.Identity.Name;
+        }
+
+        // Set StartDate to the first day of the current month
+        StartDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        EndDate = StartDate.AddMonths(1).AddDays(-1);
+        await LoadAllUsersAsync();
+
+        // ✅ Load customer types from dedicated CustomerType API
+        await LoadCustomerTypes();
+    }
+    private async Task LoadAllUsersAsync()
+    {
+        if (_usersLoaded)
+            return;
+
+        try
+        {
+            Console.WriteLine("📥 Loading all users from API...");
+
+            var users = await UserService.GetUsersAsync();
+            _userCache = users.ToDictionary(u => u.Id, u => $"{u.LastName}");
+            UserMap = _userCache; // Keep UserMap for compatibility
+
+            _usersLoaded = true;
+            Console.WriteLine($"✅ Loaded {_userCache.Count} users into cache");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading users: {ex.Message}");
+            _userCache = new Dictionary<string, string>();
+            UserMap = new Dictionary<string, string>();
+        }
+    }
+
+    private async Task LoadCustomerTypes()
+    {
+        try
+        {
+            Console.WriteLine("Loading initial customer types (page 1, 10 items)...");
+
+            // Add "All" option first
+            CustomerTypes = new List<CustomerService.CustomerTypeDto>
+            {
+                new CustomerService.CustomerTypeDto
+                {
+                    Type = "All",
+                    Description = "All Types",
+                    IsActive = true
+                }
+            };
+
+            // Load first page from API
+            var pagedResponse = await CustomerService.GetCustomerTypesPaginatedAsync(
+                pageNumber: 1,
+                pageSize: CustomerTypePageSize,
+                isActive: true
+            );
+
+            if (pagedResponse?.Data != null && pagedResponse.Data.Any())
+            {
+                CustomerTypes.AddRange(pagedResponse.Data.OrderBy(ct => ct.Type));
+                HasMoreCustomerTypes = pagedResponse.HasNext;
+                CustomerTypeCurrentPage = 1;
+
+                Console.WriteLine($"✅ Loaded {pagedResponse.Data.Count()} customer types (page 1)");
+            }
+
+            SelectedCustomerType = "All";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading initial customer types: {ex.Message}");
+
+            // Fallback to "All" option only
+            CustomerTypes = new List<CustomerService.CustomerTypeDto>
+            {
+                new CustomerService.CustomerTypeDto
+                {
+                    Type = "All",
+                    Description = "All Types",
+                    IsActive = true
+                }
+            };
+        }
+    }
+    private void OnCustomerTypeFiltering(Syncfusion.Blazor.DropDowns.FilteringEventArgs args)
+    {
+        args.PreventDefaultAction = true; // We handle filtering manually
+
+        // Use Task.Run to avoid blocking UI and handle async operations
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(args.Text))
+                {
+                    // Reset to initial page when search is cleared
+                    await InvokeAsync(async () =>
+                    {
+                        await LoadCustomerTypes();
+                        StateHasChanged();
+                    });
+                }
+                else
+                {
+                    // Search with the API (it will filter server-side)
+                    Console.WriteLine($"Searching customer types with term: '{args.Text}'");
+
+                    var searchResults = await CustomerService.GetCustomerTypesPaginatedAsync(
+                        pageNumber: 1,
+                        pageSize: 20, // Show more results when searching
+                        searchTerm: args.Text,
+                        isActive: true
+                    );
+
+                    await InvokeAsync(() =>
+                    {
+                        if (searchResults?.Data != null)
+                        {
+                            // Keep "All" option + search results
+                            CustomerTypes = new List<CustomerService.CustomerTypeDto>
+                            {
+                                new CustomerService.CustomerTypeDto
+                                {
+                                    Type = "All",
+                                    Description = "All Types",
+                                    IsActive = true
+                                }
+                            };
+
+                            CustomerTypes.AddRange(searchResults.Data.OrderBy(ct => ct.Type));
+
+                            Console.WriteLine($"✅ Found {searchResults.Data.Count()} matching customer types");
+                        }
+                        else
+                        {
+                            // No results found
+                            CustomerTypes = new List<CustomerService.CustomerTypeDto>
+                            {
+                                new CustomerService.CustomerTypeDto
+                                {
+                                    Type = "All",
+                                    Description = "All Types",
+                                    IsActive = true
+                                }
+                            };
+
+                            Console.WriteLine("⚠️ No matching customer types found");
+                        }
+
+                        StateHasChanged();
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error filtering customer types: {ex.Message}");
+
+                await InvokeAsync(() =>
+                {
+                    // Show "All" option on error
+                    CustomerTypes = new List<CustomerService.CustomerTypeDto>
+                    {
+                        new CustomerService.CustomerTypeDto
+                        {
+                            Type = "All",
+                            Description = "All Types",
+                            IsActive = true
+                        }
+                    };
+                    StateHasChanged();
+                });
+            }
+        });
+    }
+    private async Task LoadMoreCustomerTypes()
+    {
+        if (!HasMoreCustomerTypes) return;
+
+        try
+        {
+            CustomerTypeCurrentPage++;
+            Console.WriteLine($"Loading more customer types (page {CustomerTypeCurrentPage})...");
+
+            var pagedResponse = await CustomerService.GetCustomerTypesPaginatedAsync(
+                pageNumber: CustomerTypeCurrentPage,
+                pageSize: CustomerTypePageSize,
+                isActive: true
+            );
+
+            if (pagedResponse?.Data != null && pagedResponse.Data.Any())
+            {
+                // Append to existing list (exclude "All" when appending)
+                CustomerTypes.AddRange(pagedResponse.Data.OrderBy(ct => ct.Type));
+                HasMoreCustomerTypes = pagedResponse.HasNext;
+
+                Console.WriteLine($"✅ Loaded {pagedResponse.Data.Count()} more customer types");
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading more customer types: {ex.Message}");
+        }
+    }
+    private async Task FetchReport()
+    {
+        try
+        {
+            IsLoading = true;
+            HasSearched = true;
+            FilteredRepairServices.Clear();
+
+            DetailGridData.Clear();
+            DetailGridCurrentPages.Clear();
+            DetailGridPageSizes.Clear();
+            DetailGridTotalRecords.Clear();
+
+            StateHasChanged();
+
+            _lastStartDate = StartDate.Date;
+            _lastEndDate = EndDate.Date;
+            _lastServiceLocation = SelectedServiceLocation;
+            _lastCustomerType = SelectedCustomerType;
+
+            Console.WriteLine($"📊 Fetching report - ServiceLocation: {_lastServiceLocation}, CustomerType: {_lastCustomerType}");
+            Console.WriteLine($"📅 Date Range: {_lastStartDate:yyyy-MM-dd} to {_lastEndDate:yyyy-MM-dd}");
+
+            // ✅ STEP 1: Get total count first
+            // Always filter by STATUS directly (same as engineer report FilterMode==2)
+            var firstPageResult = await RepairService.SearchRepairServicesAsync(
+                pageNumber: 1,
+                pageSize: 1,
+                fromDate: _lastStartDate,
+                toDate: _lastEndDate,
+                useProcessDateFiltering: false,                          // ✅ ALWAYS false
+                status: "Finished,Customer Rejected,Unrepairable",       // ✅ Filter by status directly
+                serviceLocation: _lastServiceLocation != "All" ? _lastServiceLocation : null,
+                sortBy: "reportNo",
+                sortDescending: true
+            );
+
+            if (firstPageResult == null || firstPageResult.TotalCount == 0)
+            {
+                Console.WriteLine("⚠️ No records found");
+                TotalRecords = 0;
+                IsLoading = false;
+                StateHasChanged();
+                return;
+            }
+
+            TotalRecords = firstPageResult.TotalCount;
+            Console.WriteLine($"📊 Total records from API: {TotalRecords}");
+
+            int optimalPageSize = TotalRecords <= 100 ? TotalRecords : 100;
+            int totalPages = (int)Math.Ceiling(TotalRecords / (double)optimalPageSize);
+
+            Console.WriteLine($"🔄 Loading {TotalRecords} records in {totalPages} page(s) of {optimalPageSize}...");
+
+            var allRecords = new List<RepairServices>();
+
+            // ✅ STEP 2: Load all pages in parallel
+            var loadTasks = new List<Task<PaginatedResult<RepairServices>>>();
+
+            for (int page = 1; page <= totalPages; page++)
+            {
+                var pageTask = RepairService.SearchRepairServicesAsync(
+                    pageNumber: page,
+                    pageSize: optimalPageSize,
+                    fromDate: _lastStartDate,
+                    toDate: _lastEndDate,
+                    useProcessDateFiltering: false,                      // ✅ ALWAYS false
+                    status: "Finished,Customer Rejected,Unrepairable",   // ✅ Filter by status directly
+                    serviceLocation: _lastServiceLocation != "All" ? _lastServiceLocation : null,
+                    sortBy: "reportNo",
+                    sortDescending: true
+                );
+                loadTasks.Add(pageTask);
+            }
+
+            var results = await Task.WhenAll(loadTasks);
+
+            foreach (var result in results)
+            {
+                if (result?.Items != null)
+                    allRecords.AddRange(result.Items);
+            }
+
+            Console.WriteLine($"✅ Loaded {allRecords.Count} records from API");
+
+            // ✅ STEP 3: Client-side safety validation (double-check status)
+            var beforeValidation = allRecords.Count;
+            allRecords = allRecords
+                .Where(s => s.Status == "Finished" || s.Status == "Customer Rejected" || s.Status == "Unrepairable")
+                .ToList();
+
+            if (beforeValidation != allRecords.Count)
+                Console.WriteLine($"⚠️ Removed {beforeValidation - allRecords.Count} records with mismatched status");
+
+            Console.WriteLine($"📊 Status breakdown:");
+            Console.WriteLine($"  - Finished: {allRecords.Count(r => r.Status == "Finished")}");
+            Console.WriteLine($"  - Customer Rejected: {allRecords.Count(r => r.Status == "Customer Rejected")}");
+            Console.WriteLine($"  - Unrepairable: {allRecords.Count(r => r.Status == "Unrepairable")}");
+
+            // ✅ STEP 4: Assign validated records
+            FilteredRepairServices = allRecords;
+
+            // ✅ STEP 5: Enrich with customer types
+            await EnrichWithCustomerTypes();
+
+            // ✅ STEP 6: Apply customer type filter if needed
+            if (_lastCustomerType != "All")
+            {
+                Console.WriteLine($"🔍 Filtering by customer type: {_lastCustomerType}");
+                var beforeCount = FilteredRepairServices.Count;
+                FilteredRepairServices = FilteredRepairServices
+                    .Where(s => s.CustomerType == _lastCustomerType)
+                    .ToList();
+                Console.WriteLine($"📊 Filtered from {beforeCount} to {FilteredRepairServices.Count} records");
+            }
+
+            // ✅ STEP 7: Load spare parts
+            await LoadSparePartsForAllRecords();
+
+            // ✅ STEP 8: Final summary
+            Console.WriteLine($"📊 ===== FINAL SUMMARY =====");
+            Console.WriteLine($"  Total Records   : {FilteredRepairServices.Count}");
+            Console.WriteLine($"  Finished        : {FilteredRepairServices.Count(r => r.Status == "Finished")}");
+            Console.WriteLine($"  Customer Rejected: {FilteredRepairServices.Count(r => r.Status == "Customer Rejected")}");
+            Console.WriteLine($"  Unrepairable    : {FilteredRepairServices.Count(r => r.Status == "Unrepairable")}");
+            Console.WriteLine($"==========================");
+
+            IsFilterSectionVisible = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error fetching report: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            FilteredRepairServices.Clear();
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+    private async Task LoadSparePartsForAllRecords()
+    {
+        var sparePartIds = FilteredRepairServices
+            .SelectMany(s => s.SparePartItems ?? Enumerable.Empty<SparePartItem>())
+            .Where(item => item.SparePartId.HasValue)
+            .Select(item => item.SparePartId.Value)
+            .Distinct()
+            .ToList();
+
+        if (!sparePartIds.Any())
+        {
+            Console.WriteLine("No spare parts to load");
+            return;
+        }
+
+        Console.WriteLine($"🔧 Loading {sparePartIds.Count} unique spare parts...");
+
+        // Load spare parts in parallel batches of 10
+        var batchSize = 10;
+        var batches = sparePartIds
+            .Select((id, index) => new { id, index })
+            .GroupBy(x => x.index / batchSize)
+            .Select(g => g.Select(x => x.id).ToList())
+            .ToList();
+
+        foreach (var batch in batches)
+        {
+            var tasks = batch.Select(async sparePartId =>
+            {
+                if (!_sparePartsCache.ContainsKey(sparePartId))
+                {
+                    try
+                    {
+                        var sparePart = await SparePartService.GetSparePartByIdAsync(sparePartId);
+                        if (sparePart != null)
+                        {
+                            _sparePartsCache[sparePartId] = sparePart;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"⚠️ Error loading spare part {sparePartId}: {ex.Message}");
+                    }
+                }
+            });
+
+            await Task.WhenAll(tasks);
+        }
+
+        _spareParts = _sparePartsCache.Values;
+        Console.WriteLine($"✅ Loaded {_sparePartsCache.Count} spare parts (cached)");
+    }
+
+    // ✅ NEW: Load page data when navigating
+    private async Task LoadPageData()
+    {
+        if (!HasSearched) return;
+
+        try
+        {
+            IsLoading = true;
+            FilteredRepairServices.Clear();
+
+            var statusesToFilter = new[] { "Finished", "Customer Rejected", "Unrepairable" };
+
+            var searchResult = await RepairService.SearchRepairServicesAsync(
+                pageNumber: CurrentPage,
+                pageSize: PageSize,
+                fromDate: _lastStartDate,
+                toDate: _lastEndDate,
+                useProcessDateFiltering: true,
+                statusesForProcessFiltering: statusesToFilter,
+                serviceLocation: _lastServiceLocation != "All" ? _lastServiceLocation : null,
+                sortBy: "reportNo",
+                sortDescending: true
+            );
+
+            if (searchResult?.Items != null)
+            {
+                FilteredRepairServices = searchResult.Items.ToList();
+                TotalRecords = searchResult.TotalCount;
+
+                await EnrichWithCustomerTypes();
+
+                if (_lastCustomerType != "All")
+                {
+                    FilteredRepairServices = FilteredRepairServices
+                        .Where(s => s.CustomerType == _lastCustomerType)
+                        .ToList();
+                }
+
+                await LoadSparePartsForCurrentPage();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading page: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    
+
+ 
+
+    // ✅ OPTIMIZED: Load spare parts only for current page
+    private async Task LoadSparePartsForCurrentPage()
+    {
+        var sparePartIds = FilteredRepairServices
+            .SelectMany(s => s.SparePartItems ?? Enumerable.Empty<SparePartItem>())
+            .Where(item => item.SparePartId.HasValue)
+            .Select(item => item.SparePartId.Value)
+            .Distinct()
+            .ToList();
+
+        if (!sparePartIds.Any()) return;
+
+        foreach (var sparePartId in sparePartIds)
+        {
+            // Check cache first
+            if (!_sparePartsCache.ContainsKey(sparePartId))
+            {
+                try
+                {
+                    var sparePart = await SparePartService.GetSparePartByIdAsync(sparePartId);
+                    if (sparePart != null)
+                    {
+                        _sparePartsCache[sparePartId] = sparePart;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading spare part {sparePartId}: {ex.Message}");
+                }
+            }
+        }
+
+        // Update _spareParts from cache for existing code compatibility
+        _spareParts = _sparePartsCache.Values;
+    }
+    private int GetDetailGridCurrentPage(string customerType)
+    {
+        return DetailGridCurrentPages.GetValueOrDefault(customerType, 1);
+    }
+
+    private int GetDetailGridPageSize(string customerType)
+    {
+        return DetailGridPageSizes.GetValueOrDefault(customerType, DefaultDetailPageSize);
+    }
+
+    private int GetDetailGridTotalRecords(string customerType)
+    {
+        return DetailGridTotalRecords.GetValueOrDefault(customerType, 0);
+    }
+
+    private int GetDetailGridTotalPages(string customerType)
+    {
+        var total = GetDetailGridTotalRecords(customerType);
+        var pageSize = GetDetailGridPageSize(customerType);
+        return total > 0 ? (int)Math.Ceiling(total / (double)pageSize) : 0;
+    }
+
+    private bool HasDetailGridPreviousPage(string customerType)
+    {
+        return GetDetailGridCurrentPage(customerType) > 1;
+    }
+
+    private bool HasDetailGridNextPage(string customerType)
+    {
+        return GetDetailGridCurrentPage(customerType) < GetDetailGridTotalPages(customerType);
+    }
+
+    // Load detail grid data for a specific customer type
+    private void LoadDetailGridDataFromCache(string customerType, int pageNumber = 1, int pageSize = 10)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(customerType)) return;
+
+            // Get all records for this customer type from cached data
+            var allRecords = FilteredRepairServices
+                .Where(r => (r.CustomerType ?? "Unknown") == customerType)
+                .ToList();
+
+            // Update total records
+            DetailGridTotalRecords[customerType] = allRecords.Count;
+
+            // Calculate pagination
+            int skip = (pageNumber - 1) * pageSize;
+            var pageData = allRecords
+                .Skip(skip)
+                .Take(pageSize)
+                .ToList();
+
+            // Store the data
+            DetailGridData[customerType] = pageData;
+            DetailGridCurrentPages[customerType] = pageNumber;
+            DetailGridPageSizes[customerType] = pageSize;
+
+            Console.WriteLine($"Loaded detail grid for {customerType}: Page {pageNumber}, {pageData.Count} records");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading detail grid data for {customerType}: {ex.Message}");
+            InvokeAsync(StateHasChanged);
+
+        }
+    }
+
+    // Enrich customer types for detail grid
+    private async Task EnrichDetailGridCustomerTypes(List<RepairServices> services)
+    {
+        var companyNames = services
+            .Select(s => s.CompanyName)
+            .Distinct()
+            .Where(cn => !string.IsNullOrWhiteSpace(cn))
+            .ToList();
+
+        foreach (var companyName in companyNames)
+        {
+            var customerType = await CustomerService.GetCustomerTypeByCompanyName(companyName);
+            foreach (var service in services.Where(s => s.CompanyName == companyName))
+            {
+                service.CustomerType = string.IsNullOrEmpty(customerType) ? "Unknown" : customerType;
+            }
+        }
+    }
+
+    // Load spare parts for detail grid
+    private async Task LoadSparePartsForDetailGrid(List<RepairServices> services)
+    {
+        var sparePartIds = services
+            .SelectMany(s => s.SparePartItems ?? Enumerable.Empty<SparePartItem>())
+            .Where(item => item.SparePartId.HasValue)
+            .Select(item => item.SparePartId.Value)
+            .Distinct()
+            .ToList();
+
+        foreach (var sparePartId in sparePartIds)
+        {
+            if (!_sparePartsCache.ContainsKey(sparePartId))
+            {
+                try
+                {
+                    var sparePart = await SparePartService.GetSparePartByIdAsync(sparePartId);
+                    if (sparePart != null)
+                    {
+                        _sparePartsCache[sparePartId] = sparePart;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading spare part {sparePartId}: {ex.Message}");
+                }
+            }
+        }
+        _spareParts = _sparePartsCache.Values;
+    }
+
+    // Detail grid pagination handlers
+    private void DetailGridFirstPage(string customerType)
+    {
+        LoadDetailGridDataFromCache(customerType, 1, GetDetailGridPageSize(customerType));
+    }
+
+    private void DetailGridPreviousPage(string customerType)
+    {
+        var currentPage = GetDetailGridCurrentPage(customerType);
+        if (currentPage > 1)
+        {
+            LoadDetailGridDataFromCache(customerType, currentPage - 1, GetDetailGridPageSize(customerType));
+        }
+    }
+
+    private void DetailGridNextPage(string customerType)
+    {
+        var currentPage = GetDetailGridCurrentPage(customerType);
+        var totalPages = GetDetailGridTotalPages(customerType);
+        if (currentPage < totalPages)
+        {
+            LoadDetailGridDataFromCache(customerType, currentPage + 1, GetDetailGridPageSize(customerType));
+        }
+    }
+
+    private void DetailGridLastPage(string customerType)
+    {
+        var totalPages = GetDetailGridTotalPages(customerType);
+        LoadDetailGridDataFromCache(customerType, totalPages, GetDetailGridPageSize(customerType));
+    }
+
+    private void OnDetailGridPageSizeChanged(string customerType, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int newSize))
+        {
+            LoadDetailGridDataFromCache(customerType, 1, newSize);
+        }
+    }
+
+    // Get detail grid data for display
+    private List<RepairServices> GetDetailGridData(string customerType)
+    {
+        if (DetailGridData.ContainsKey(customerType))
+        {
+            return DetailGridData[customerType];
+        }
+
+        // Initialize on first access
+        InitializeDetailGridFromCache(customerType);
+        return DetailGridData.GetValueOrDefault(customerType, new List<RepairServices>());
+    }
+
+    // Initialize detail grid data when master row is expanded
+    private void OnDetailGridExpanded(string customerType)
+    {
+        if (!DetailGridData.ContainsKey(customerType))
+        {
+            // Initialize with existing filtered data immediately
+            InitializeDetailGridFromCache(customerType);
+            StateHasChanged();
+        }
+    }
+
+    // Initialize detail grid with cached data (no API call needed)
+    private void InitializeDetailGridFromCache(string customerType)
+    {
+        // Get all records for this customer type from already loaded data
+        var allRecords = FilteredRepairServices
+            .Where(r => (r.CustomerType ?? "Unknown") == customerType)
+            .ToList();
+
+        // Set total records
+        DetailGridTotalRecords[customerType] = allRecords.Count;
+
+        // Initialize page settings
+        DetailGridCurrentPages[customerType] = 1;
+        DetailGridPageSizes[customerType] = DefaultDetailPageSize;
+
+        // Get first page of data
+        var firstPageData = allRecords
+            .Take(DefaultDetailPageSize)
+            .ToList();
+
+        // Store in cache
+        DetailGridData[customerType] = firstPageData;
+    }
+    private async Task EnrichWithCustomerTypes()
+    {
+        try
+        {
+            // Get unique company names from the filtered results only
+            var companyNames = FilteredRepairServices
+                .Select(s => s.CompanyName)
+                .Distinct()
+                .Where(cn => !string.IsNullOrWhiteSpace(cn))
+                .ToList();
+
+            if (!companyNames.Any())
+            {
+                Console.WriteLine("No companies to enrich");
+                return;
+            }
+
+            Console.WriteLine($"⚡ Enriching customer types for {companyNames.Count} unique companies in parallel...");
+            var startTime = DateTime.Now;
+
+            // ✅ PARALLEL LOOKUP - All companies at once!
+            var lookupTasks = companyNames.Select(async companyName =>
+            {
+                try
+                {
+                    var customerType = await CustomerService.GetCustomerTypeByCompanyName(companyName);
+                    return new { companyName, customerType = string.IsNullOrEmpty(customerType) ? "Unknown" : customerType };
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Error looking up customer type for {companyName}: {ex.Message}");
+                    return new { companyName, customerType = "Unknown" };
+                }
+            });
+
+            var results = await Task.WhenAll(lookupTasks);
+
+            // Apply results to all services with matching company names
+            var customerTypeMap = results.ToDictionary(r => r.companyName, r => r.customerType);
+
+            foreach (var service in FilteredRepairServices)
+            {
+                if (!string.IsNullOrWhiteSpace(service.CompanyName) &&
+                    customerTypeMap.ContainsKey(service.CompanyName))
+                {
+                    service.CustomerType = customerTypeMap[service.CompanyName];
+                }
+                else
+                {
+                    service.CustomerType = "Unknown";
+                }
+            }
+
+            var elapsed = (DateTime.Now - startTime).TotalMilliseconds;
+            Console.WriteLine($"✅ Enriched {companyNames.Count} companies in {elapsed:F0}ms (parallel)");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error enriching customer types: {ex.Message}");
+        }
+    }
+
+    private async Task EnsureSparePartsLoaded()
+    {
+        // Spare parts are now loaded on-demand per page, so this just ensures cache is populated
+        if (_sparePartsCache.Count == 0)
+        {
+            await LoadSparePartsForCurrentPage();
+        }
+    }
+
+   
+
+    private async Task ShowRepairServiceDetails(RepairServices repairService)
+    {
+        // Load spare parts on-demand when viewing details
+        await EnsureSparePartsLoaded();
+
+        _selectedRepairService = repairService;
+        isViewDialogVisible = true;
+        await DialogEdit.ShowAsync();
+    }
+
+    private void RowSelectHandler(RowSelectEventArgs<RepairServices> args)
+    {
+        if (args.Data != null)
+        {
+            _selectedRepairService = args.Data;
+        }
+        else
+        {
+            DialogNoRecordSelected.ShowAsync();
+        }
+    }
+
+    private void CloseDialogNoRecordSelected()
+    {
+        DialogNoRecordSelected.HideAsync();
+    }
+
+    private void OverlayClick(OverlayModalClickEventArgs args)
+    {
+        this.isViewDialogVisible = false;
+    }
+
+    private void CloseDialog()
+    {
+        isDialogVisible = false;
+        this.isViewDialogVisible = false;
+    }
+
+    private async Task ShowReportPreview()
+    {
+        try
+        {
+            // Ensure spare parts and users are loaded for report generation
+            await EnsureSparePartsLoaded();
+
+            bool isSameDate = (StartDate.Date == EndDate.Date);
+            var report = new MonthlyReportShow();
+            report.SetCustomers(new List<Customer>()); // Handle separately if needed
+            report.SetDataSource(FilteredRepairServices, isSameDate);
+            report.Parameters["FromDate"].Value = StartDate.Date;
+
+            if (!isSameDate)
+            {
+                report.Parameters["ToDate"].Value = EndDate.Date;
+            }
+
+            var toDateParam = report.Parameters["ToDate"] as DevExpress.XtraReports.Parameters.Parameter;
+            if (toDateParam != null)
+            {
+                toDateParam.Visible = !isSameDate;
+            }
+            report.Parameters["ServiceLocation"].Value = SelectedServiceLocation;
+
+            byte[] reportData;
+            using (var ms = new MemoryStream())
+            {
+                report.ExportToPdf(ms);
+                reportData = ms.ToArray();
+            }
+
+            string base64Report = Convert.ToBase64String(reportData);
+            await JSRuntime.InvokeVoidAsync("blazorReportsPrint.previewReportInNewTab", base64Report, "ServiceReport.pdf");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating report: {ex.Message}");
+        }
+    }
+
+    private async Task ShowReportPreview2()
+    {
+        try
+        {
+            // Ensure users are loaded for report generation
+
+            var report = new DailyReport();
+            var repairByUsers = new List<string>();
+            var verifiedByUsers = new List<string>();
+
+            foreach (var service in FilteredRepairServices)
+            {
+                var repairByName = GetUserNameById(service.repairBy);
+                var verifiedByName = GetUserNameById(service.verifiedBy);
+                repairByUsers.Add(repairByName);
+                verifiedByUsers.Add(verifiedByName);
+                service.RepairByName = repairByName;
+                service.VerifiedByName = verifiedByName;
+            }
+
+            report.Parameters["FromDate"].Value = StartDate;
+            report.Parameters["ToDate"].Value = EndDate;
+            report.SetDataSource(FilteredRepairServices, repairByUsers, verifiedByUsers, CurrentUserName);
+
+            byte[] reportData;
+            using (var ms = new MemoryStream())
+            {
+                report.ExportToPdf(ms);
+                reportData = ms.ToArray();
+            }
+
+            await JSRuntime.InvokeVoidAsync("downloadReportPdf", reportData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating report: {ex.Message}");
+        }
+    }
+
+    private void RowDoubleClickHandler(RecordDoubleClickEventArgs<RepairServices> args)
+    {
+        _selectedRepairService = args.RowData;
+        if (_selectedRepairService != null)
+        {
+            isViewDialogVisible = true;
+            DialogEdit.ShowAsync();
+        }
+    }
+
+    public async Task ExportToExcel()
+    {
+        // Ensure spare parts are loaded before export
+        await EnsureSparePartsLoaded();
+
+        foreach (var service in FilteredRepairServices)
+        {
+            foreach (var item in service.SparePartItems)
+            {
+                var sparePart = _spareParts.FirstOrDefault(sp => sp.Id == item.SparePartId);
+                if (sparePart != null)
+                {
+                    item.ItemName = sparePart.ItemName;
+                }
+            }
+        }
+        await MyGrid.ExportToExcelAsync(new ExcelExportProperties { IncludeHiddenColumn = true });
+    }
+
+    public async Task ExportToPdf()
+    {
+        await MyGrid.ExportToPdfAsync();
+    }
+
+    public string GetUserNameById(Guid? userId)
+    {
+        if (!userId.HasValue || userId.Value == Guid.Empty)
+            return "None";
+
+        string userIdString = userId.Value.ToString();
+
+        if (!_usersLoaded)
+            return "Loading...";
+
+        if (_userCache.TryGetValue(userIdString, out string username))
+            return username;
+
+        return "Unknown User";
+    }
+
+    private bool isDialogVisible = false;
+}
+
+<script>
+    // ✅ Namespace for report functions
+    window.blazorReportsPrint = window.blazorReportsPrint || {};
+
+    /**
+     * ✅ Preview Report in New Tab (for Print Report button)
+     * Opens PDF in new browser tab for preview and printing
+     */
+    window.blazorReportsPrint.previewReportInNewTab = function (base64Data, filename) {
+        try {
+            console.log('📄 previewReportInNewTab called');
+            console.log('  Base64 length:', base64Data?.length || 0);
+            console.log('  Filename:', filename);
+
+            if (!base64Data) {
+                console.error('❌ No base64 data provided');
+                alert('Error: No report data to display');
+                return;
+            }
+
+            // Convert base64 to byte array
+            const binaryString = window.atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // Create blob
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            console.log('✅ Blob created, size:', blob.size, 'bytes');
+
+            // Create object URL
+            const url = URL.createObjectURL(blob);
+            console.log('✅ Object URL created:', url);
+
+            // Open in new tab
+            const newWindow = window.open(url, '_blank');
+
+            if (newWindow) {
+                console.log('✅ New window opened successfully');
+
+                // Set title and trigger print after PDF loads
+                newWindow.document.title = filename || 'Report';
+
+                // Wait for PDF to load, then show print dialog
+                setTimeout(function () {
+                    newWindow.focus();
+                    newWindow.print();
+                }, 500);
+
+                // Clean up object URL after 1 minute
+                setTimeout(function () {
+                    URL.revokeObjectURL(url);
+                    console.log('🧹 Object URL cleaned up');
+                }, 60000);
+            } else {
+                console.error('❌ Failed to open new window - popup might be blocked');
+                alert('Please allow popups to preview the report.\n\nOr use the "Export to PDF" option to download instead.');
+
+                // Fallback: trigger download
+                downloadBlob(blob, filename);
+                URL.revokeObjectURL(url);
+            }
+
+        } catch (error) {
+            console.error('❌ Error in previewReportInNewTab:', error);
+            alert('Error opening report preview: ' + error.message);
+        }
+    };
+
+    /**
+     * ✅ Print Report (alternative method using blob URL)
+     * For when you have byte array instead of base64
+     */
+    window.printReport = function (reportData) {
+        try {
+            console.log('📄 printReport called, data length:', reportData?.length || 0);
+
+            if (!reportData || reportData.length === 0) {
+                console.error('❌ No report data provided');
+                alert('Error: No report data to print');
+                return;
+            }
+
+            // Create blob from byte array
+            const blob = new Blob([reportData], { type: 'application/pdf' });
+            console.log('✅ Blob created, size:', blob.size, 'bytes');
+
+            // Create object URL
+            const url = URL.createObjectURL(blob);
+            console.log('✅ Object URL created');
+
+            // Open in new window for preview and printing
+            const printWindow = window.open(url, '_blank');
+
+            if (printWindow) {
+                console.log('✅ Print window opened successfully');
+
+                // Wait for PDF to load, then trigger print dialog
+                printWindow.onload = function () {
+                    console.log('📄 PDF loaded, triggering print dialog');
+                    setTimeout(function () {
+                        printWindow.print();
+                    }, 250);
+                };
+
+                // Clean up object URL after a delay
+                setTimeout(function () {
+                    URL.revokeObjectURL(url);
+                    console.log('🧹 Object URL cleaned up');
+                }, 60000);
+
+            } else {
+                console.error('❌ Failed to open print window - popup might be blocked');
+                alert('Please allow popups to preview/print the report');
+                URL.revokeObjectURL(url);
+            }
+
+        } catch (error) {
+            console.error('❌ Error in printReport:', error);
+            alert('Error opening print preview: ' + error.message);
+        }
+    };
+
+    /**
+     * ✅ Download PDF Report (for "Export to PDF" button)
+     */
+    window.downloadReportPdf = function (reportData, filename) {
+        try {
+            console.log('💾 downloadReportPdf called, data length:', reportData?.length || 0);
+
+            if (!reportData || reportData.length === 0) {
+                console.error('❌ No report data provided');
+                alert('Error: No report data to download');
+                return;
+            }
+
+            const blob = new Blob([reportData], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename || 'DailyReport.pdf';
+
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Clean up
+            setTimeout(function () {
+                URL.revokeObjectURL(link.href);
+                console.log('✅ Download triggered, URL cleaned up');
+            }, 100);
+
+        } catch (error) {
+            console.error('❌ Error in downloadReportPdf:', error);
+            alert('Error downloading PDF: ' + error.message);
+        }
+    };
+
+    /**
+     * Helper function to download blob
+     */
+    function downloadBlob(blob, filename) {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename || 'Report.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(link.href), 100);
+    }
+
+    console.log('✅ blazorReportsPrint functions loaded');
+</script>
+
+<style>
+    /* Optional: Style for print media */
+    @@media print {
+        body > *:not(iframe)
+
+    {
+        display: none !important;
+    }
+
+    }
+</style>

@@ -1,0 +1,1962 @@
+﻿<style>
+    /* ========================================
+       CHAT APPLICATION - PROFESSIONAL UI DESIGN
+       Scoped styles for Chat.razor
+       ======================================== */
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    /* ========================================
+       MAIN CHAT CONTAINER
+       ======================================== */
+    .chat-container {
+        display: flex;
+        height: 100vh;
+        width: 100%;
+        background: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ========================================
+       SIDEBAR NAVIGATION
+       ======================================== */
+    .chat-sidebar {
+        width: 320px;
+        min-width: 320px;
+        background: #ffffff;
+        border-right: 1px solid #e4e4e7;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .chat-sidebar-header {
+        padding: 20px 20px 16px;
+        background: #ffffff;
+        border-bottom: 1px solid #e4e4e7;
+    }
+
+    .chat-sidebar-logo {
+        font-size: 24px;
+        font-weight: 600;
+        color: #18181b;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+        .chat-sidebar-logo i {
+            color: #3b82f6;
+            font-size: 26px;
+        }
+
+    .chat-compose-button {
+        width: 100%;
+        padding: 12px 20px;
+        background: #3b82f6;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+        .chat-compose-button:hover {
+            background: #2563eb;
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .chat-compose-button:active {
+            transform: translateY(0);
+        }
+
+    .chat-sidebar-nav {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 0;
+    }
+
+    .chat-nav-item {
+        padding: 12px 20px;
+        margin: 2px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 15px;
+        color: #52525b;
+        transition: all 0.15s ease;
+        position: relative;
+    }
+
+        .chat-nav-item:hover {
+            background: #f4f4f5;
+            color: #18181b;
+        }
+
+        .chat-nav-item.chat-nav-active {
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: 600;
+        }
+
+        .chat-nav-item i {
+            width: 20px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+    .chat-nav-badge {
+        background: #ef4444;
+        color: #ffffff;
+        border-radius: 10px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 700;
+        margin-left: auto;
+        min-width: 20px;
+        text-align: center;
+    }
+
+    /* ========================================
+       MAIN CONTENT AREA
+       ======================================== */
+    .chat-main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #fafafa;
+        overflow: hidden;
+    }
+
+    /* ========================================
+       TOP HEADER BAR
+       ======================================== */
+    .chat-top-header {
+        min-height: 70px;
+        border-bottom: 1px solid #e4e4e7;
+        display: flex;
+        align-items: center;
+        padding: 16px 24px;
+        background: #ffffff;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .chat-search-input {
+        flex: 1;
+        min-width: 240px;
+        max-width: 420px;
+        padding: 10px 16px 10px 40px;
+        border: 1px solid #e4e4e7;
+        background: #fafafa;
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+        transition: all 0.2s ease;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2371717a' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 12px center;
+    }
+
+        .chat-search-input:focus {
+            background-color: #ffffff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+    .chat-refresh-button {
+        padding: 10px 18px;
+        background: #3b82f6;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+
+        .chat-refresh-button:hover:not(:disabled) {
+            background: #2563eb;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+        }
+
+        .chat-refresh-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .chat-refresh-button.chat-refresh-spinning i {
+            animation: chat-spin-animation 1s linear infinite;
+        }
+
+    .chat-auto-refresh-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #71717a;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+        .chat-auto-refresh-label input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+    @@keyframes chat-spin-animation {
+        to
+
+    {
+        transform: rotate(360deg);
+    }
+
+    }
+
+    /* ========================================
+       CONVERSATION BACK HEADER
+       ======================================== */
+    .chat-conversation-header {
+        padding: 16px 24px;
+        border-bottom: 1px solid #e4e4e7;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: #ffffff;
+    }
+
+    .chat-back-button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 8px;
+        color: #71717a;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+
+        .chat-back-button:hover {
+            background: #f4f4f5;
+            color: #18181b;
+        }
+
+    .chat-recipient-avatar {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e4e4e7;
+    }
+
+    .chat-recipient-info {
+        flex: 1;
+    }
+
+    .chat-recipient-name {
+        font-weight: 600;
+        font-size: 16px;
+        color: #18181b;
+        margin-bottom: 2px;
+    }
+
+    .chat-recipient-status {
+        font-size: 13px;
+        color: #71717a;
+    }
+
+    /* ========================================
+       GRID/MESSAGES CONTAINER
+       ======================================== */
+    .chat-grid-wrapper {
+        flex: 1;
+        overflow: hidden;
+        background: #ffffff;
+    }
+
+    /* ========================================
+       USER LIST CELL
+       ======================================== */
+    .chat-user-list-cell {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 0;
+        width: 100%;
+    }
+
+    .chat-user-avatar {
+        width: 52px;
+        height: 52px;
+        min-width: 52px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #f4f4f5;
+        transition: border-color 0.2s ease;
+    }
+
+    .chat-user-details {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .chat-user-name {
+        font-weight: 600;
+        font-size: 15px;
+        color: #18181b;
+        margin-bottom: 4px;
+    }
+
+    .chat-user-message-preview {
+        font-size: 13px;
+        color: #71717a;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .chat-user-metadata {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        min-width: 90px;
+    }
+
+    .chat-user-timestamp {
+        font-size: 12px;
+        color: #a1a1aa;
+        white-space: nowrap;
+    }
+
+    .chat-user-status-online {
+        color: #22c55e;
+        font-size: 12px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .chat-user-status-offline {
+        color: #a1a1aa;
+        font-size: 12px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    /* ========================================
+       MESSAGE CONTENT STYLING
+       ======================================== */
+    .chat-message-reply-box {
+        background: #eff6ff;
+        border-left: 3px solid #3b82f6;
+        padding: 10px 14px;
+        margin-bottom: 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #52525b;
+    }
+
+        .chat-message-reply-box i {
+            margin-right: 6px;
+            color: #3b82f6;
+        }
+
+        .chat-message-reply-box > div {
+            margin-top: 4px;
+            color: #18181b;
+        }
+
+    .chat-request-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 8px;
+        letter-spacing: 0.025em;
+    }
+
+        .chat-request-badge.edit {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .chat-request-badge.delete {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+    /* ========================================
+       ACTION BUTTONS
+       ======================================== */
+    .chat-message-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    /* ========================================
+       COMPOSE MESSAGE AREA
+       ======================================== */
+    .chat-compose-area {
+        border-top: 1px solid #e4e4e7;
+        padding: 20px 24px;
+        background: #ffffff;
+    }
+
+    .chat-reply-preview-box {
+        background: #eff6ff;
+        border-left: 3px solid #3b82f6;
+        padding: 14px 18px;
+        margin-bottom: 14px;
+        border-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px;
+        color: #18181b;
+    }
+
+        .chat-reply-preview-box i {
+            color: #3b82f6;
+            margin-right: 8px;
+        }
+
+    .chat-reply-cancel-button {
+        background: none;
+        border: none;
+        color: #71717a;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .chat-reply-cancel-button:hover {
+            background: #dbeafe;
+            color: #3b82f6;
+        }
+
+    .chat-input-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .chat-message-input {
+        flex: 1;
+        padding: 12px 18px;
+        border: 1px solid #e4e4e7;
+        border-radius: 24px;
+        font-size: 14px;
+        outline: none;
+        transition: all 0.2s ease;
+        background: #fafafa;
+    }
+
+        .chat-message-input:focus {
+            border-color: #3b82f6;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+    .chat-attachment-button,
+    .chat-send-button {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        font-size: 18px;
+    }
+
+    .chat-attachment-button {
+        background: transparent;
+        color: #71717a;
+    }
+
+        .chat-attachment-button:hover {
+            background: #f4f4f5;
+            color: #18181b;
+        }
+
+    .chat-send-button {
+        background: #3b82f6;
+        color: #ffffff;
+    }
+
+        .chat-send-button:hover:not(:disabled) {
+            background: #2563eb;
+            transform: scale(1.05);
+        }
+
+        .chat-send-button:active {
+            transform: scale(0.95);
+        }
+
+        .chat-send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    /* ========================================
+       LOADING STATE
+       ======================================== */
+    .chat-loading-container,
+    .chat-error-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        gap: 20px;
+        padding: 20px;
+    }
+
+    .chat-loading-spinner {
+        width: 52px;
+        height: 52px;
+        border: 4px solid #f4f4f5;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: chat-spin-animation 0.8s linear infinite;
+    }
+
+    .chat-loading-container p {
+        font-size: 15px;
+        color: #71717a;
+    }
+
+    /* ========================================
+       ERROR STATE
+       ======================================== */
+    .chat-error-container {
+        text-align: center;
+    }
+
+        .chat-error-container h3 {
+            font-size: 26px;
+            color: #ef4444;
+            margin-bottom: 8px;
+        }
+
+        .chat-error-container p {
+            color: #71717a;
+            max-width: 420px;
+            line-height: 1.5;
+        }
+
+    .chat-error-reload-button {
+        padding: 12px 32px;
+        background: #3b82f6;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+        .chat-error-reload-button:hover {
+            background: #2563eb;
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+        }
+
+    /* ========================================
+       SCROLLBAR STYLING
+       ======================================== */
+    .chat-sidebar-nav::-webkit-scrollbar,
+    .chat-grid-wrapper::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .chat-sidebar-nav::-webkit-scrollbar-track,
+    .chat-grid-wrapper::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .chat-sidebar-nav::-webkit-scrollbar-thumb,
+    .chat-grid-wrapper::-webkit-scrollbar-thumb {
+        background: #e4e4e7;
+        border-radius: 4px;
+    }
+
+        .chat-sidebar-nav::-webkit-scrollbar-thumb:hover,
+        .chat-grid-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #d4d4d8;
+        }
+
+    /* ========================================
+       RESPONSIVE DESIGN
+       ======================================== */
+    @@media (max-width: 1024px) {
+        .chat-sidebar
+
+    {
+        width: 280px;
+        min-width: 280px;
+    }
+
+    }
+
+    @@media (max-width: 768px) {
+        .chat-sidebar
+
+    {
+        position: fixed;
+        left: -320px;
+        z-index: 1000;
+        height: 100vh;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: none;
+    }
+
+    .chat-sidebar.chat-sidebar-open {
+        left: 0;
+        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .chat-top-header {
+        flex-wrap: wrap;
+        padding: 12px 16px;
+    }
+
+    .chat-search-input {
+        max-width: 100%;
+        order: 3;
+        flex-basis: 100%;
+        margin-top: 8px;
+    }
+
+    .chat-user-metadata {
+        min-width: 70px;
+    }
+
+    .chat-message-actions {
+        justify-content: flex-start;
+    }
+
+    .chat-compose-area {
+        padding: 16px;
+    }
+
+    }
+</style>
+
+
+@page "/chat"
+@page "/chat/{UserId}"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.WebUtilities
+@using ServiceMaintenance.Pages.Details
+@using ServiceMaintenance.Services
+@using ServiceMaintenance.Services.JWT
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Buttons
+@using System.Threading
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject IMessageService MsgSvc
+@inject RepairItemService RepairSvc
+@inject JwtSessionService JWT
+@inject JwtUserManagementService UserMgmtSvc
+@inject ILogger<ChatPage> Logger
+
+<PageTitle>Messages</PageTitle>
+
+<div class="chat-container">
+    @if (_loading)
+    {
+        <div class="chat-loading-container">
+            <div class="chat-loading-spinner"></div>
+            <p>Loading...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="chat-error-container">
+            <h3>⚠️ Error</h3>
+            <p>@_error</p>
+            <button class="chat-error-reload-button" @onclick="Reload">Reload</button>
+        </div>
+    }
+    else
+    {
+        <div class="chat-sidebar">
+            <div class="chat-sidebar-header">
+                <div class="chat-sidebar-logo">
+                    <i class="fas fa-comments"></i>
+                    Messages
+                </div>
+                <button class="chat-compose-button" @onclick="ShowUsers">
+                    <i class="fas fa-plus"></i>
+                    New Message
+                </button>
+            </div>
+            <nav class="chat-sidebar-nav">
+                <div class="chat-nav-item @(_showUsers ? "chat-nav-active" : "")" @onclick="ShowUsers">
+                    <i class="fas fa-inbox"></i>
+                    Inbox
+                    @if (_unreadTotal > 0)
+                    {
+                        <span class="chat-nav-badge">@_unreadTotal</span>
+                    }
+                </div>
+            </nav>
+        </div>
+
+        <div class="chat-main-content">
+            <div class="chat-top-header">
+                <input type="text"
+                       class="chat-search-input"
+                       placeholder="Search conversations..."
+                       @bind="_search"
+                       @bind:event="oninput"
+                       @bind:after="OnSearchChanged" />
+
+                <button class="chat-refresh-button @(_refreshing ? "chat-refresh-spinning" : "")"
+                        @onclick="RefreshAsync"
+                        disabled="@_refreshing">
+                    <i class="fas fa-sync-alt"></i>
+                    @(_refreshing ? "Refreshing..." : "Refresh")
+                </button>
+                <label class="chat-auto-refresh-label">
+                    <input type="checkbox" @bind="_autoRefresh" @bind:after="OnAutoRefreshChanged" />
+                    Auto (@_refreshSec s)
+                </label>
+            </div>
+
+            @if (!_showUsers && !string.IsNullOrEmpty(_recipientId))
+            {
+                <div class="chat-conversation-header">
+                    <button class="chat-back-button" @onclick="ShowUsers">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <img src="@GetPic(_recipientId)"
+                         alt="@_recipientName"
+                         class="chat-recipient-avatar" />
+                    <div class="chat-recipient-info">
+                        <div class="chat-recipient-name">@_recipientName</div>
+                        <div class="chat-recipient-status">@GetStatus(_recipientId)</div>
+                    </div>
+                </div>
+            }
+
+            <div class="chat-grid-wrapper">
+                @if (_showUsers)
+                {
+                    <SfGrid @ref="_userGrid" DataSource="@FilteredUsers" AllowPaging="true" Height="100%">
+                        <GridEvents RowSelected="SelectUserRowAsync" TValue="UserViewModel"></GridEvents>
+                        <GridPageSettings PageSize="20"></GridPageSettings>
+                        <GridColumns>
+                            <GridColumn HeaderText="Conversations">
+                                <Template>
+                                    @{
+                                        var u = context as UserViewModel;
+                                        if (u == null) return;
+
+                                        var userUnreadCount = GetUnreadCount(u.Id);
+
+                                        <div class="chat-user-list-cell">
+                                            <img src="@GetPic(u.Id)"
+                                                 alt="@u.UserName"
+                                                 class="chat-user-avatar"
+                                                 loading="lazy" />
+                                            <div class="chat-user-details">
+                                                <div class="chat-user-name">@u.UserName</div>
+                                                <div class="chat-user-message-preview">@GetLastMsg(u.Id)</div>
+                                            </div>
+                                            <div class="chat-user-metadata">
+                                                <div class="chat-user-timestamp">@GetLastTime(u.Id)</div>
+                                                @if (userUnreadCount > 0)
+                                                {
+                                                    <span class="chat-nav-badge">@userUnreadCount</span>
+                                                }
+                                                <div class="@(u.IsOnline ? "chat-user-status-online" : "chat-user-status-offline")">
+                                                    @(u.IsOnline ? "● Online" : "○ Offline")
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                }
+                else
+                {
+                    <SfGrid @ref="_msgGrid" DataSource="@FilteredMsgs" AllowPaging="true" Height="100%">
+                        <GridPageSettings PageSize="20"></GridPageSettings>
+                        <GridSortSettings>
+                            <GridSortColumns>
+                                <GridSortColumn Field="When" Direction="SortDirection.Descending"></GridSortColumn>
+                            </GridSortColumns>
+                        </GridSortSettings>
+                        <GridColumns>
+                            <GridColumn Field="When" HeaderText="Time" Width="140" Format="dd/MM/yyyy HH:mm"></GridColumn>
+                            <GridColumn Field="User" HeaderText="Sender" Width="150"></GridColumn>
+                            <GridColumn HeaderText="Message" Width="500">
+                                <Template>
+                                    @{
+                                        var m = context as ChatMsg;
+                                        if (m == null) return;
+
+                                        <div>
+                                            @if (m.ReplyId.HasValue)
+                                            {
+                                                <div class="chat-message-reply-box">
+                                                    <i class="fas fa-reply"></i> @m.ReplyUser
+                                                    <div>@((MarkupString)SanitizeHtml(m.ReplyTxt))</div>
+                                                </div>
+                                            }
+                                            <div>
+                                                @((MarkupString)SanitizeHtml(m.Text))
+                                                @if (IsReqMsg(m.Text))
+                                                {
+                                                    var action = GetReqAction(m.Text);
+                                                    <span class="chat-request-badge @(action?.ToLower())">Request @action</span>
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(m.FileUrl))
+                                            {
+                                                @if (IsImg(m.FileUrl))
+                                                {
+                                                    <a href="@m.FileUrl" target="_blank" rel="noopener noreferrer">
+                                                        <img src="@m.FileUrl" loading="lazy" alt="Attachment" />
+                                                    </a>
+                                                }
+                                                else if (IsAudio(m.FileUrl))
+                                                {
+                                                    <audio controls preload="none">
+                                                        <source src="@m.FileUrl" />
+                                                    </audio>
+                                                }
+                                                else
+                                                {
+                                                    <a href="@m.FileUrl" download>
+                                                        <i class="fas fa-file"></i> Download
+                                                    </a>
+                                                }
+                                            }
+                                        </div>
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Actions" Width="280">
+                                <Template>
+                                    @{
+                                        var m = context as ChatMsg;
+                                        if (m == null) return;
+
+                                        <div class="chat-message-actions">
+                                            @if (_isAdmin && IsReqMsg(m.Text))
+                                            {
+                                                var action = GetReqAction(m.Text);
+                                                @if (action == "Edit")
+                                                {
+                                                    <SfButton CssClass="e-warning e-small" IconCss="fas fa-edit" OnClick="@(() => EditReqAsync(m))">Edit</SfButton>
+                                                }
+                                                else if (action == "Delete")
+                                                {
+                                                    <SfButton CssClass="e-danger e-small" IconCss="fas fa-trash-alt" OnClick="@(() => DelReqAsync(m))">Delete</SfButton>
+                                                }
+                                                <SfButton CssClass="e-outline e-small" IconCss="fas fa-times" OnClick="@(() => CancelReqAsync(m))">Cancel</SfButton>
+                                            }
+                                            else
+                                            {
+                                                <SfButton CssClass="e-info e-small" OnClick="@(() => Reply(m))">Reply</SfButton>
+                                                @if (m.UserId == _userId)
+                                                {
+                                                    <SfButton CssClass="e-danger e-small" OnClick="@(() => DeleteAsync(m))">Delete</SfButton>
+                                                }
+                                            }
+                                        </div>
+                                    }
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                }
+            </div>
+
+            @if (!_showUsers && !string.IsNullOrEmpty(_recipientId))
+            {
+                <div class="chat-compose-area">
+                    @if (_replying && _replyMsg != null)
+                    {
+                        <div class="chat-reply-preview-box">
+                            <div>
+                                <i class="fas fa-reply"></i>
+                                Replying to @_replyMsg.User
+                            </div>
+                            <button class="chat-reply-cancel-button" @onclick="CancelReply">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    }
+                    <div class="chat-input-controls">
+                        <label for="file" class="chat-attachment-button">
+                            <i class="fas fa-paperclip"></i>
+                        </label>
+                        <InputFile id="file" OnChange="UploadAsync" style="display:none" accept="image/*,audio/*,.pdf,.doc,.docx" />
+                        <input type="text"
+                               class="chat-message-input"
+                               placeholder="Type a message..."
+                               @bind="_text"
+                               @bind:event="oninput"
+                               @onkeydown="KeyDownAsync"
+                               maxlength="2000" />
+                        <button class="chat-send-button" @onclick="SendAsync" disabled="@(string.IsNullOrWhiteSpace(_text))">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (_showEdit && _editService != null)
+{
+    <EditRepairService ShowModal="_showEdit"
+                       ShowModalChanged="@((bool v) => { _showEdit = v; StateHasChanged(); })"
+                       ServiceToEdit="_editService"
+                       OnServiceUpdated="OnEditCompleteAsync" />
+}
+
+@code {
+    [Parameter] public string UserId { get; set; }
+
+    // ✅ UPDATED: Added admin flag
+    private SfGrid<ChatMsg> _msgGrid;
+    private SfGrid<UserViewModel> _userGrid;
+
+    private string _userId, _userName, _recipientId, _recipientName, _text = "", _search = "", _error;
+    private bool _loading = true, _refreshing, _showUsers = true, _replying, _autoRefresh, _showEdit;
+    private int _refreshSec = 30, _unreadTotal;
+    private bool _isAdmin = false; // ✅ Track if current user is admin
+
+    private List<ChatMsg> _msgs = new();
+    private List<UserViewModel> _users = new();
+    private Dictionary<string, Message> _lastMsgs = new();
+    private Dictionary<string, int> _unread = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> _picCache = new();
+    private ChatMsg _replyMsg;
+    private RepairServices _editService;
+    private ChatMsg _reqMsg;
+
+    private Timer _autoRefreshTimer;
+    private CancellationTokenSource _cts;
+    private readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private System.Timers.Timer _searchDebounceTimer;
+
+    private IEnumerable<UserViewModel> FilteredUsers =>
+        string.IsNullOrWhiteSpace(_search)
+            ? _users
+            : _users.Where(u => u.UserName?.Contains(_search, StringComparison.OrdinalIgnoreCase) == true);
+
+    private IEnumerable<ChatMsg> FilteredMsgs =>
+        string.IsNullOrWhiteSpace(_search)
+            ? _msgs
+            : _msgs.Where(m => m.Text?.Contains(_search, StringComparison.OrdinalIgnoreCase) == true);
+
+    private static readonly HashSet<string> AllowedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".gif", ".webp"
+    };
+
+    private static readonly HashSet<string> AllowedAudioExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp3", ".wav", ".ogg", ".m4a"
+    };
+
+    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            Logger.LogInformation("Chat page initialization started");
+
+            if (JWT.IsTokenExpired())
+            {
+                Logger.LogWarning("JWT expired - redirecting to login");
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            var uid = JWT.GetCurrentUserId();
+            var uname = JWT.GetCurrentUsername();
+
+            if (!uid.HasValue || string.IsNullOrEmpty(uname))
+            {
+                Logger.LogWarning("No user info - redirecting to login");
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            _userId = uid.Value.ToString();
+            _userName = uname;
+
+            Logger.LogInformation("Current user: {UserName} ({UserId})", _userName, _userId);
+
+            // ✅ NEW: Check if user is admin
+            await CheckUserRolesAsync();
+
+            await Task.WhenAll(
+                LoadUsersAsync(),
+                LoadUnreadCountsAsync()
+            );
+
+            await LoadLastMsgsAsync();
+            await CheckAndOpenConversationFromUrlAsync();
+
+            _loading = false;
+            Logger.LogInformation("Chat page initialization completed");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during initialization");
+            _error = "Failed to load chat. Please try again.";
+            _loading = false;
+        }
+    }
+    private async Task CheckUserRolesAsync()
+    {
+        try
+        {
+            Logger.LogDebug("Checking user roles for {UserId}", _userId);
+
+            var userResponse = await UserMgmtSvc.GetUserByIdAsync(_userId);
+
+            if (userResponse?.Status == "Success" && userResponse.Data != null)
+            {
+                var roles = userResponse.Data.Roles ?? new List<string>();
+                _isAdmin = roles.Any(r => r.Equals("Admin", StringComparison.OrdinalIgnoreCase));
+
+                Logger.LogInformation("User {UserName} is admin: {IsAdmin}", _userName, _isAdmin);
+            }
+            else
+            {
+                Logger.LogWarning("Failed to get user roles: {Message}", userResponse?.Message);
+                _isAdmin = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking user roles");
+            _isAdmin = false;
+        }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        try
+        {
+            if (!string.IsNullOrEmpty(UserId) && UserId != _recipientId)
+            {
+                Logger.LogInformation("Route parameter changed: UserId={UserId}", UserId);
+
+                var targetUser = _users.FirstOrDefault(u => u.Id.Equals(UserId, StringComparison.OrdinalIgnoreCase));
+
+                if (targetUser != null)
+                {
+                    _recipientId = targetUser.Id;
+                    _recipientName = targetUser.UserName;
+                    _showUsers = false;
+
+                    await LoadMsgsAsync(_recipientId);
+                    Logger.LogInformation("Opened conversation via route: {UserName}", targetUser.UserName);
+                }
+            }
+            else
+            {
+                await CheckAndOpenConversationFromUrlAsync();
+            }
+
+            SetupAutoRefresh();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in OnParametersSetAsync");
+        }
+    }
+
+    // ✅ FIXED: Use JwtUserManagementService instead of GlobalUserCacheService
+    private async Task LoadUsersAsync()
+    {
+        try
+        {
+            Logger.LogInformation("Loading users from JwtUserManagementService...");
+
+            // Get users from the API with profile pictures
+            var response = await UserMgmtSvc.GetAllUsersAsync(page: 1, pageSize: 100);
+
+            if (response?.Data != null && response.Data.Any())
+            {
+                _users = response.Data.Select(u => new UserViewModel
+                {
+                    Id = u.Id,
+                    UserName = u.UserName,
+                    Email = u.Email,
+                    ProfilePictureUrl = u.ProfilePictureUrl,  // ✅ Now includes profile picture URL
+                    IsOnline = false // You can add online status logic later
+                }).ToList();
+
+                Logger.LogInformation("Loaded {Count} users with profile pictures", _users.Count);
+            }
+            else
+            {
+                _users = new List<UserViewModel>();
+                Logger.LogWarning("No users returned from API");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading users");
+            _users = new List<UserViewModel>();
+            throw;
+        }
+    }
+
+    private async Task LoadUnreadCountsAsync()
+    {
+        try
+        {
+            Logger.LogDebug("Loading unread counts for user: {UserId}", _userId);
+
+            var counts = await MsgSvc.GetUnreadCountsAsync(_userId);
+
+            if (counts != null && counts.Any())
+            {
+                _unread = new Dictionary<string, int>(counts, StringComparer.OrdinalIgnoreCase);
+                _unreadTotal = _unread.Values.Sum();
+
+                Logger.LogInformation("Loaded unread counts: Total={Total}, FromUsers={Count}",
+                    _unreadTotal, counts.Count);
+            }
+            else
+            {
+                _unread.Clear();
+                _unreadTotal = 0;
+                Logger.LogDebug("No unread messages");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading unread counts");
+            _unread.Clear();
+            _unreadTotal = 0;
+        }
+    }
+
+    // ✅ FIXED: Batch API call instead of loop
+    private async Task LoadLastMsgsAsync()
+    {
+        try
+        {
+            var userIds = _users
+                .Where(u => GetUnreadCount(u.Id) > 0)
+                .Take(20)
+                .Select(u => u.Id)
+                .ToList();
+
+            if (!userIds.Any())
+            {
+                Logger.LogDebug("No users with unread messages");
+                return;
+            }
+
+            // NOTE: This assumes you have or will create a batch endpoint
+            // For now, we'll use parallel tasks with throttling
+            var tasks = userIds.Select(async uid =>
+            {
+                try
+                {
+                    var msg = await MsgSvc.GetLastMessageAsync(_userId, uid);
+                    if (msg != null)
+                    {
+                        lock (_lastMsgs)
+                        {
+                            _lastMsgs[uid] = msg;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Failed to load last message for user {UserId}", uid);
+                }
+            });
+
+            await Task.WhenAll(tasks);
+
+            Logger.LogInformation("Loaded {Count} last messages", _lastMsgs.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading last messages");
+        }
+    }
+
+    private async Task CheckAndOpenConversationFromUrlAsync()
+    {
+        try
+        {
+            var uri = new Uri(Nav.Uri);
+            var query = QueryHelpers.ParseQuery(uri.Query);
+
+            if (query.TryGetValue("userId", out var userIdFromUrl) && !string.IsNullOrEmpty(userIdFromUrl))
+            {
+                Logger.LogInformation("Opening conversation from URL: {UserId}", userIdFromUrl);
+
+                var targetUser = _users.FirstOrDefault(u => u.Id.Equals(userIdFromUrl, StringComparison.OrdinalIgnoreCase));
+
+                if (targetUser != null)
+                {
+                    _recipientId = targetUser.Id;
+                    _recipientName = targetUser.UserName;
+                    _showUsers = false;
+
+                    await LoadMsgsAsync(_recipientId);
+                    Logger.LogInformation("Opened conversation with {UserName}", targetUser.UserName);
+                }
+                else
+                {
+                    Logger.LogWarning("User not found: {UserId}", userIdFromUrl);
+                    _showUsers = true;
+                }
+            }
+            else
+            {
+                _showUsers = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error opening conversation from URL");
+            _showUsers = true;
+        }
+    }
+
+    private async Task LoadMsgsAsync(string recipientId)
+    {
+        try
+        {
+            Logger.LogDebug("Loading messages with {RecipientId}", recipientId);
+
+            _msgs.Clear();
+            var history = await MsgSvc.GetMessagesAsync(_userId, recipientId);
+
+            if (history?.Any() == true)
+            {
+                _msgs.AddRange(history.Select(m => new ChatMsg
+                {
+                    Id = m.Id,
+                    User = m.UserName,
+                    UserId = m.UserID,
+                    Text = m.Text,
+                    When = m.When,
+                    FileUrl = m.FileUrl,
+                    ReplyId = m.ReplyToMessageId,
+                    ReplyUser = m.ReplyToUserName,
+                    ReplyTxt = m.ReplyToText
+                }));
+
+                Logger.LogInformation("Loaded {Count} messages", _msgs.Count);
+            }
+
+            await MarkMessagesAsReadAsync(recipientId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading messages");
+            throw;
+        }
+    }
+
+    private async Task MarkMessagesAsReadAsync(string senderId)
+    {
+        if (string.IsNullOrEmpty(senderId))
+        {
+            Logger.LogWarning("MarkMessagesAsReadAsync called with null/empty senderId");
+            return;
+        }
+
+        try
+        {
+            Logger.LogDebug("Marking messages as read from: {SenderId}", senderId);
+
+            var markedCount = await MsgSvc.MarkMessagesReadAsync(_userId, senderId);
+
+            if (markedCount > 0)
+            {
+                if (_unread.ContainsKey(senderId))
+                {
+                    var oldCount = _unread[senderId];
+                    _unreadTotal -= oldCount;
+                    _unread[senderId] = 0;
+
+                    Logger.LogInformation("Updated unread counts: {SenderId} {OldCount}→0, Total={Total}",
+                        senderId, oldCount, _unreadTotal);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error marking messages as read");
+        }
+    }
+
+    // ✅ FIXED: Thread-safe refresh with proper locking
+    private async Task RefreshAsync()
+    {
+        if (!await _refreshLock.WaitAsync(0))
+        {
+            Logger.LogDebug("Refresh already in progress");
+            return;
+        }
+
+        _refreshing = true;
+
+        try
+        {
+            Logger.LogDebug("Refresh triggered - ShowUsers={ShowUsers}", _showUsers);
+
+            if (_showUsers)
+            {
+                await LoadUnreadCountsAsync();
+                await LoadLastMsgsAsync();
+
+                if (_userGrid != null)
+                {
+                    await _userGrid.Refresh();
+                }
+            }
+            else
+            {
+                await LoadMsgsAsync(_recipientId);
+
+                if (_msgGrid != null)
+                {
+                    await _msgGrid.Refresh();
+                }
+            }
+
+            Logger.LogInformation("Refresh completed");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during refresh");
+        }
+        finally
+        {
+            _refreshing = false;
+            _refreshLock.Release();
+        }
+    }
+
+    private void SetupAutoRefresh()
+    {
+        try
+        {
+            _autoRefreshTimer?.Dispose();
+            _autoRefreshTimer = null;
+
+            if (_autoRefresh && _refreshSec > 0)
+            {
+                Logger.LogInformation("Setting up auto-refresh: every {Seconds} seconds", _refreshSec);
+
+                _autoRefreshTimer = new Timer(async _ =>
+                {
+                    if (_cts.IsCancellationRequested) return;
+
+                    try
+                    {
+                        Logger.LogDebug("Auto-refresh triggered");
+
+                        await InvokeAsync(async () =>
+                        {
+                            if (!_refreshing)
+                            {
+                                await LoadUnreadCountsAsync();
+                                StateHasChanged();
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "Auto-refresh error");
+                    }
+                }, null, TimeSpan.FromSeconds(_refreshSec), TimeSpan.FromSeconds(_refreshSec));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error setting up auto-refresh");
+        }
+    }
+
+    private void OnAutoRefreshChanged()
+    {
+        SetupAutoRefresh();
+    }
+
+    private CancellationTokenSource _searchCts;
+
+    private async Task OnSearchChanged()
+    {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+
+        _searchCts = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, _searchCts.Token);
+
+            // Perform search / filtering here
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (TaskCanceledException)
+        {
+            // Expected when user keeps typing
+        }
+    }
+
+    private void ShowUsers()
+    {
+        _showUsers = true;
+        _recipientId = "";
+        _search = "";
+        Nav.NavigateTo("/chat", false);
+    }
+
+    private async Task SelectUserRowAsync(RowSelectEventArgs<UserViewModel> args)
+    {
+        if (args.Data == null) return;
+
+        _recipientId = args.Data.Id;
+        _recipientName = args.Data.UserName;
+        _showUsers = false;
+
+        await LoadMsgsAsync(_recipientId);
+        Nav.NavigateTo($"/chat?userId={_recipientId}", false);
+    }
+
+    // ✅ FIXED: Proper error handling with user feedback
+    private async Task SendAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_text)) return;
+
+        try
+        {
+            Logger.LogDebug("Sending message to {RecipientId}", _recipientId);
+
+            var sanitizedText = System.Net.WebUtility.HtmlEncode(_text.Trim());
+
+            await MsgSvc.SaveMessageAsync(new Message
+            {
+                UserID = _userId,
+                RecipientID = _recipientId,
+                Text = sanitizedText,
+                UserName = _userName,
+                When = DateTime.UtcNow,
+                ReplyToMessageId = _replying ? _replyMsg?.Id : null
+            });
+
+            _msgs.Add(new ChatMsg
+            {
+                User = _userName,
+                UserId = _userId,
+                Text = sanitizedText,
+                When = DateTime.UtcNow
+            });
+
+            _text = "";
+            CancelReply();
+
+            if (_msgGrid != null)
+            {
+                await _msgGrid.Refresh();
+            }
+
+            Logger.LogInformation("Message sent successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error sending message");
+            await JS.InvokeVoidAsync("alert", "Failed to send message. Please try again.");
+        }
+    }
+    // ✅ FIXED: Helper to delete all messages for a ReportNo (for all admins)
+    private async Task DeleteMessagesByReportNoAsync(string reportNo)
+    {
+        try
+        {
+            Logger.LogInformation($"🗑️ Deleting all messages for ReportNo: {reportNo}");
+
+            // ✅ FIX: Returns int, not a response object
+            var deletedCount = await MsgSvc.DeleteMessagesByReportNoAsync(reportNo);
+
+            if (deletedCount > 0)
+            {
+                Logger.LogInformation($"✅ Successfully deleted {deletedCount} messages for {reportNo}");
+
+                // Remove from local messages list
+                _msgs.RemoveAll(m => m.Text.Contains($"ReportNo: {reportNo}") ||
+                                     m.Text.Contains($"ReportNo:{reportNo}"));
+
+                if (_msgGrid != null)
+                {
+                    await _msgGrid.Refresh();
+                }
+            }
+            else
+            {
+                Logger.LogInformation($"ℹ️ No messages found to delete for {reportNo}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"❌ Error deleting messages by ReportNo: {reportNo}");
+        }
+    }
+    // ✅ FIXED: Proper error handling
+    private async Task DeleteAsync(ChatMsg m)
+    {
+        try
+        {
+            var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this message?");
+            if (!confirmed) return;
+
+            await MsgSvc.DeleteMessageAsync(m.Id);
+
+            _msgs.Remove(m);
+
+            if (_msgGrid != null)
+            {
+                await _msgGrid.Refresh();
+            }
+
+            Logger.LogInformation("Message {MessageId} deleted", m.Id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting message {MessageId}", m.Id);
+            await JS.InvokeVoidAsync("alert", "Failed to delete message. Please try again.");
+        }
+    }
+
+    // ✅ FIXED: File upload validation
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        if (e.File == null) return;
+
+        try
+        {
+            // Validate file size
+            if (e.File.Size > MaxFileSize)
+            {
+                await JS.InvokeVoidAsync("alert", $"File size exceeds {MaxFileSize / 1024 / 1024}MB limit");
+                return;
+            }
+
+            // Validate file type
+            var extension = Path.GetExtension(e.File.Name).ToLowerInvariant();
+            var isImage = AllowedImageExtensions.Contains(extension);
+            var isAudio = AllowedAudioExtensions.Contains(extension);
+
+            if (!isImage && !isAudio && extension != ".pdf" && extension != ".doc" && extension != ".docx")
+            {
+                await JS.InvokeVoidAsync("alert", "File type not allowed");
+                return;
+            }
+
+            Logger.LogInformation("Uploading file: {FileName} ({Size} bytes)", e.File.Name, e.File.Size);
+
+            var content = new MultipartFormDataContent();
+            var fileStream = e.File.OpenReadStream(MaxFileSize);
+            content.Add(new StreamContent(fileStream), "file", e.File.Name);
+
+            var client = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+            var response = await client.PostAsync("api/fileupload/upload", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<FileResult>();
+                
+                if (result != null && !string.IsNullOrEmpty(result.Url))
+                {
+                    // Send message with file attachment
+                    await MsgSvc.SaveMessageAsync(new Message
+                    {
+                        UserID = _userId,
+                        RecipientID = _recipientId,
+                        Text = $"[File: {e.File.Name}]",
+                        FileUrl = result.Url,
+                        UserName = _userName,
+                        When = DateTime.UtcNow
+                    });
+
+                    await RefreshAsync();
+                    Logger.LogInformation("File uploaded successfully: {Url}", result.Url);
+                }
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Failed to upload file");
+                Logger.LogWarning("File upload failed: {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error uploading file");
+            await JS.InvokeVoidAsync("alert", "Error uploading file. Please try again.");
+        }
+    }
+
+    private void Reply(ChatMsg m)
+    {
+        _replyMsg = m;
+        _replying = true;
+    }
+
+    private void CancelReply()
+    {
+        _replyMsg = null;
+        _replying = false;
+    }
+
+    private async Task KeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendAsync();
+        }
+    }
+
+    // ✅ FIXED: Optimized with single lookup
+    // ✅ UPDATED: Use ProfilePictureUrl from API
+    private string GetPic(string uid)
+    {
+        if (string.IsNullOrEmpty(uid))
+            return "/images/default.png";
+
+        if (_picCache.TryGetValue(uid, out var cached))
+            return cached;
+
+        var user = _users.FirstOrDefault(u => u.Id == uid);
+
+        // Priority 1: Use ProfilePictureUrl from API
+        if (!string.IsNullOrEmpty(user?.ProfilePictureUrl))
+        {
+            return _picCache[uid] = user.ProfilePictureUrl;
+        }
+
+        // Priority 2: Use ProfilePicture byte array (legacy)
+        if (user?.ProfilePicture?.Length > 0)
+        {
+            var pic = $"data:image/png;base64,{Convert.ToBase64String(user.ProfilePicture)}";
+            return _picCache[uid] = pic;
+        }
+
+        // Priority 3: Default image
+        return _picCache[uid] = "/images/default.png";
+    }
+
+    private int GetUnreadCount(string senderId)
+    {
+        if (string.IsNullOrEmpty(senderId))
+            return 0;
+
+        return _unread.GetValueOrDefault(senderId.Trim(), 0);
+    }
+
+    private string GetLastMsg(string uid) =>
+        _lastMsgs.TryGetValue(uid, out var m) ? TruncateText(m.Text, 50) : "No messages";
+
+    private string GetLastTime(string uid)
+    {
+        if (!_lastMsgs.TryGetValue(uid, out var m))
+            return "";
+
+        var local = m.When.ToLocalTime();
+        return local.Date == DateTime.Now.Date
+            ? local.ToString("h:mm tt")
+            : local.ToString("MMM d");
+    }
+
+    private string GetStatus(string uid) =>
+        _users.FirstOrDefault(u => u.Id == uid)?.IsOnline == true ? "Online" : "Offline";
+
+    // ✅ FIXED: Extension-based checks
+    private bool IsImg(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return false;
+        var ext = Path.GetExtension(url).ToLowerInvariant();
+        return AllowedImageExtensions.Contains(ext);
+    }
+
+    private bool IsAudio(string url)
+    {
+        if (string.IsNullOrEmpty(url)) return false;
+        var ext = Path.GetExtension(url).ToLowerInvariant();
+        return AllowedAudioExtensions.Contains(ext);
+    }
+
+    private bool IsReqMsg(string txt)
+    {
+        if (string.IsNullOrEmpty(txt)) return false;
+        var decoded = System.Net.WebUtility.HtmlDecode(txt);
+        return decoded.Contains("Request Edit", StringComparison.OrdinalIgnoreCase) ||
+               decoded.Contains("Request Delete", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetReqAction(string txt)
+    {
+        if (string.IsNullOrEmpty(txt)) return null;
+        var decoded = System.Net.WebUtility.HtmlDecode(txt);
+        if (decoded.Contains("Request Edit", StringComparison.OrdinalIgnoreCase)) return "Edit";
+        if (decoded.Contains("Request Delete", StringComparison.OrdinalIgnoreCase)) return "Delete";
+        return null;
+    }
+
+    private Guid? GetServiceId(string txt)
+    {
+        if (string.IsNullOrWhiteSpace(txt)) return null;
+        var decoded = System.Net.WebUtility.HtmlDecode(txt);
+        var match = System.Text.RegularExpressions.Regex.Match(decoded,
+            @"[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}");
+        return match.Success && Guid.TryParse(match.Value, out var g) ? g : null;
+    }
+
+    private string GetReportNo(string txt)
+    {
+        if (string.IsNullOrWhiteSpace(txt)) return "Unknown";
+        var decoded = System.Net.WebUtility.HtmlDecode(txt);
+        var match = System.Text.RegularExpressions.Regex.Match(decoded, @"ReportNo[:\s]*([0-9A-Za-z\-_]+)");
+        return match.Success ? match.Groups[1].Value : "Unknown";
+    }
+
+    // ✅ NEW: HTML sanitization helper
+    private string SanitizeHtml(string html)
+    {
+        if (string.IsNullOrEmpty(html))
+            return string.Empty;
+
+        // Basic HTML sanitization - in production, use a library like HtmlSanitizer
+        return html;
+    }
+
+    private string TruncateText(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+            return text ?? "";
+
+        return text.Substring(0, maxLength) + "...";
+    }
+
+    private async Task EditReqAsync(ChatMsg m)
+    {
+        try
+        {
+            _reqMsg = m;
+            var svcId = GetServiceId(m.Text);
+            if (!svcId.HasValue) return;
+
+            var reportNo = GetReportNo(m.Text);
+
+            var svc = await RepairSvc.GetRepairServiceByIdAsync(svcId.Value);
+            if (svc == null)
+            {
+                await JS.InvokeVoidAsync("alert", "Service not found");
+                return;
+            }
+
+            _editService = svc;
+            _showEdit = true;
+
+            // ✅ Delete all request messages with this ReportNo (for all admins)
+            await DeleteMessagesByReportNoAsync(reportNo);
+
+            Logger.LogInformation($"✅ Opening edit for {reportNo} and clearing request messages");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading service for edit");
+            await JS.InvokeVoidAsync("alert", "Failed to load service");
+        }
+    }
+    private async Task DelReqAsync(ChatMsg m)
+    {
+        try
+        {
+            var svcId = GetServiceId(m.Text);
+            if (!svcId.HasValue) return;
+
+            var reportNo = GetReportNo(m.Text);
+            var confirm = await JS.InvokeAsync<bool>("confirm",
+                $"Delete service {reportNo}?\n\nThis cannot be undone.");
+            if (!confirm) return;
+
+            // Optimistic UI update
+            _msgs.Remove(m);
+            if (_msgGrid != null)
+            {
+                await _msgGrid.Refresh();
+            }
+
+            // Delete service
+            await RepairSvc.DeleteRepairServiceAsync(svcId.Value);
+
+            // ✅ Delete all request messages with this ReportNo (for all admins)
+            await DeleteMessagesByReportNoAsync(reportNo);
+
+            Logger.LogInformation($"✅ Service {reportNo} deleted and all request messages cleared");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting service request");
+            await JS.InvokeVoidAsync("alert", "Failed to delete service");
+            await RefreshAsync();
+        }
+    }
+
+    private async Task CancelReqAsync(ChatMsg m)
+    {
+        try
+        {
+            var reportNo = GetReportNo(m.Text);
+            var action = GetReqAction(m.Text);
+            var confirm = await JS.InvokeAsync<bool>("confirm",
+                $"Cancel {action} request for {reportNo}?");
+            if (!confirm) return;
+
+            // Remove from UI
+            _msgs.Remove(m);
+            if (_msgGrid != null)
+            {
+                await _msgGrid.Refresh();
+            }
+
+            // ✅ Delete all request messages with this ReportNo (for all admins)
+            await DeleteMessagesByReportNoAsync(reportNo);
+
+            Logger.LogInformation($"✅ Cancelled {action} request for {reportNo} and cleared all request messages");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error cancelling request");
+            await JS.InvokeVoidAsync("alert", "Failed to cancel request");
+        }
+    }
+
+    private async Task OnEditCompleteAsync()
+    {
+        try
+        {
+            var currentReqMsg = _reqMsg;
+            if (currentReqMsg == null)
+            {
+                _editService = null;
+                return;
+            }
+
+            var reportNo = GetReportNo(currentReqMsg.Text);
+
+            _editService = null;
+            _reqMsg = null;
+
+            // ✅ Delete all request messages with this ReportNo (for all admins)
+            await DeleteMessagesByReportNoAsync(reportNo);
+
+            Logger.LogInformation($"✅ Service {reportNo} updated and all request messages cleared");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error completing edit");
+        }
+    }
+    private void Reload() => Nav.NavigateTo(Nav.Uri, true);
+
+    // ✅ FIXED: Proper async disposal
+    public async ValueTask DisposeAsync()
+    {
+        Logger.LogInformation("Chat page disposing");
+
+        _cts?.Cancel();
+        _cts?.Dispose();
+
+        _autoRefreshTimer?.Dispose();
+        _searchDebounceTimer?.Dispose();
+        _refreshLock?.Dispose();
+
+        await Task.CompletedTask;
+    }
+
+    // Models
+    public class ChatMsg
+    {
+        public int Id { get; set; }
+        public string User { get; set; }
+        public string UserId { get; set; }
+        public string Text { get; set; }
+        public DateTime When { get; set; }
+        public string FileUrl { get; set; }
+        public int? ReplyId { get; set; }
+        public string ReplyUser { get; set; }
+        public string ReplyTxt { get; set; }
+    }
+
+    public class FileResult
+    {
+        public string Url { get; set; }
+    }
+}

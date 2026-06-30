@@ -1,0 +1,690 @@
+﻿@page "/repairservice/{Id:guid}"
+@using ServiceMaintenance.Pages.Reports
+@using ServiceMaintenance.Services
+@using ServiceMaintenance.Services.JWT
+@inject IJSRuntime JSRuntime
+@inject RepairItemService RepairItemService
+@inject ServiceSparePart SparePartService
+@inject CustomerService CustomerService
+@inject GlobalUserService GlobalUserCache
+@inject NavigationManager NavigationManager
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private RepairServices _repairService;
+    private List<SparePartObject> _spareParts = new List<SparePartObject>();
+    private RepairServices _selectedRepairService = new RepairServices();
+    private bool ReportViewerVisible { get; set; }
+    private Report2 CurrentReport { get; set; }
+    private bool isReportDialogVisible = false;
+    private IEnumerable<Customer> _customers;
+    private bool isDialogVisible = false;
+    private SfDialog dialog;
+    private bool isLoading = true;
+    private string errorMessage = null;
+    private Dictionary<string, string> _allUsers = new Dictionary<string, string>();
+    private bool _usersLoaded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            // ✅ STEP 1: Load all users FIRST with the new method
+            await LoadAllUsersAsync();
+
+            // ✅ STEP 2: Fetch only the specific repair service by ID
+            _repairService = await RepairItemService.GetRepairServiceByIdAsync(Id);
+
+            if (_repairService == null)
+            {
+                errorMessage = $"Repair service with ID {Id} not found.";
+                Console.WriteLine(errorMessage);
+                isLoading = false;
+                return;
+            }
+
+            // ✅ OPTIMIZED: Only fetch spare parts if the service has spare part items
+            if (_repairService.SparePartItems != null && _repairService.SparePartItems.Any())
+            {
+                // Get unique spare part IDs from the repair service
+                var sparePartIds = _repairService.SparePartItems
+                    .Select(x => x.SparePartId)
+                    .Distinct()
+                    .ToList();
+
+                // ✅ OPTIMIZED: Fetch a reasonable page size of spare parts
+                var sparePartsResult = await SparePartService.GetSparePartsPagedAsync(
+                    pageNumber: 1,
+                    pageSize: 100
+                );
+
+                // Filter to only the spare parts we need
+                _spareParts = sparePartsResult.Items
+                    .Where(sp => sparePartIds.Contains(sp.Id))
+                    .ToList();
+            }
+
+            // ✅ OPTIMIZED: Fetch paginated customer data
+            var customerResult = await CustomerService.GetCustomersPaginatedAsync(
+                pageNumber: 1,
+                pageSize: 100
+            );
+            _customers = customerResult.Data;
+
+            isLoading = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading repair service: {ex.Message}";
+            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            isLoading = false;
+        }
+    }
+    private async Task LoadAllUsersAsync()
+    {
+        if (_usersLoaded)
+            return;
+
+        try
+        {
+            Console.WriteLine("📥 Loading all users from API...");
+
+            // Get all users from GlobalUserCache
+            _allUsers = await GlobalUserCache.GetUsersAsync();
+            _usersLoaded = true;
+            Console.WriteLine($"✅ Loaded {_allUsers.Count} users into cache");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading users: {ex.Message}");
+            _allUsers = new Dictionary<string, string>();
+        }
+    }
+
+    private string GetUserNameById(Guid? userId)
+    {
+        if (!userId.HasValue || userId.Value == Guid.Empty)
+            return "Unknown";
+
+        // Convert Guid to string for dictionary lookup
+        string userIdString = userId.Value.ToString();
+
+        // Check if users are loaded
+        if (!_usersLoaded)
+            return "Loading...";
+
+        // Lookup username from loaded users dictionary
+        if (_allUsers.TryGetValue(userIdString, out string username))
+            return username;
+
+        return "Unknown User";
+    }
+
+
+    private void OpenReportDialog()
+    {
+        isReportDialogVisible = true;
+    }
+
+    private void CloseReportDialog()
+    {
+        isReportDialogVisible = false;
+        StateHasChanged();
+    }
+
+    private void NavigateToRepairServices()
+    {
+        NavigationManager.NavigateTo("/repairservices");
+    }
+
+    private void Navigateexit()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    private async Task<string> GetUserPhoneNumberById(Guid? userId)
+    {
+        // ✅ Use GlobalUserCacheService to get phone number
+        return await GlobalUserCache.GetUserPhoneNumberByIdAsync(userId, autoLoad: true);
+    }
+
+    private void OverlayClick(OverlayModalClickEventArgs args)
+    {
+        this.isDialogVisible = false;
+    }
+
+    private async Task ExportReportToPdf()
+    {
+        try
+        {
+            // Check if the repair service status is not "Finished"
+            if (_repairService?.Status != "Finished")
+            {
+                isDialogVisible = true;
+                StateHasChanged();
+                return;
+            }
+
+            if (_repairService == null)
+            {
+                Console.WriteLine("No repair service found.");
+                return;
+            }
+
+            // Resolve RepairBy and VerifiedBy GUIDs to usernames
+            string repairByUser = GetUserNameById(_repairService.repairBy);
+            string verifiedByUser = GetUserNameById(_repairService.verifiedBy);
+
+            // Get phone numbers for RepairBy and VerifiedBy users
+            string repairByPhone = await GetUserPhoneNumberById(_repairService.repairBy);
+            string verifiedByPhone = await GetUserPhoneNumberById(_repairService.verifiedBy);
+
+            // Populate SparePartItems with details
+            if (_repairService?.SparePartItems != null && _spareParts != null)
+            {
+                foreach (var item in _repairService.SparePartItems)
+                {
+                    var sparePart = _spareParts.FirstOrDefault(sp => sp.Id == item.SparePartId);
+                    if (sparePart != null)
+                    {
+                        item.ItemName = sparePart.ItemName;
+                        item.SerialNumber = sparePart.SerialNumber;
+                        item.UseFor = sparePart.UseFor;
+                    }
+                }
+            }
+
+            // Create the report and set parameters
+            var report = new Report2();
+            report.SetParameters(
+                _repairService,
+                _repairService.ServiceLocation ?? "Unknown",
+                _repairService.SparePartItems ?? new List<SparePartItem>(),
+                _repairService.hasContract,
+                repairByUser,
+                verifiedByUser,
+                repairByPhone,
+                verifiedByPhone
+            );
+
+            // Hide parameters
+            report.Parameters["Id"].Visible = false;
+            report.Parameters["ReportNumber"].Visible = false;
+            report.Parameters["CompanyName"].Visible = false;
+            report.Parameters["ContactName"].Visible = false;
+            report.Parameters["PhoneNumber"].Visible = false;
+            report.Parameters["Address"].Visible = false;
+            report.Parameters["ItemName"].Visible = false;
+            report.Parameters["SerialNumber"].Visible = false;
+            report.Parameters["CustomerRequest"].Visible = false;
+            report.Parameters["inspection"].Visible = false;
+            report.Parameters["Solution"].Visible = false;
+            report.Parameters["CompanyServiceChecked"].Visible = false;
+            report.Parameters["OnSiteChecked"].Visible = false;
+            report.Parameters["HasContract"].Visible = false;
+            report.Parameters["Datestart"].Visible = false;
+            report.Parameters["Datefinish"].Visible = false;
+            report.Parameters["RepairBy"].Visible = false;
+            report.Parameters["VerifiedBy"].Visible = false;
+            report.Parameters["RepairByPhone"].Visible = false;
+            report.Parameters["VerifiedByPhone"].Visible = false;
+
+            // Export to PDF
+            using (var pdfStream = new MemoryStream())
+            {
+                report.ExportToPdf(pdfStream);
+                pdfStream.Position = 0;
+
+                // Create filename with sanitized report number
+                string sanitizedReportNo = _repairService.reportNo?
+                    .Replace("/", "-")
+                    .Replace("\\", "-") ?? "Report";
+                string fileName = $"ServiceReport_{sanitizedReportNo}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+
+                // Trigger file download
+                await JSRuntime.InvokeVoidAsync("JS.SaveFile", pdfStream.ToArray(), fileName);
+            }
+
+            ReportViewerVisible = false;
+            CurrentReport = report;
+            isReportDialogVisible = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating report: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+    }
+
+    private string GetStatusColor(string status)
+    {
+        if (string.IsNullOrEmpty(status))
+            return "gray";
+
+        return status switch
+        {
+            "Inspection" => "blue",
+            "Awaiting Customer Confirm" => "orange",
+            "Awaiting Sparepart" => "purple",
+            "Repairing" => "yellow",
+            "Finished" => "green",
+            "Customer Rejected" => "red",
+            "Unrepairable" => "gray",
+            _ => "black"
+        };
+    }
+
+    private string GetCustomerType(string companyName)
+    {
+        var customer = _customers?.FirstOrDefault(c => c.CompanyName == companyName);
+        return customer?.CustomerType ?? "Unknown";
+    }
+
+    private string GetImagePath(string customerType)
+    {
+        string cleanedCustomerType = customerType.Replace(" ", "_");
+        return $"./images/partner_logo/{cleanedCustomerType}.jpg";
+    }
+
+    private void OnDialogClose()
+    {
+        isDialogVisible = false;
+    }
+}
+
+<script>
+    window.JS = {
+        SaveFile: function (byteArray, fileName) {
+            var blob = new Blob([new Uint8Array(byteArray)], { type: 'application/pdf' });
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.click();
+        }
+    };
+</script>
+
+<div class="page-container">
+    <button class="navigate-button" @onclick="ExportReportToPdf">
+        <i class="fas fa-print navigate-icon"></i>
+    </button>
+
+    <div class="button-container">
+        <button class="navigate-button" @onclick="NavigateToRepairServices">
+            Lists
+        </button>
+        <button class="navigate-button back-button" @onclick="Navigateexit">
+            Back
+        </button>
+    </div>
+    <hr />
+    <h3>Repair Service Details</h3>
+
+    @if (isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner"></div>
+            <p class="loading">Loading repair service details...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-container">
+            <i class="fas fa-exclamation-triangle error-icon"></i>
+            <p class="error-message">@errorMessage</p>
+            <button class="navigate-button" @onclick="NavigateToRepairServices">
+                Return to List
+            </button>
+        </div>
+    }
+    else if (_repairService != null)
+    {
+        <div class="repair-details">
+            @if (_repairService.reportNo != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.Textref)]:</strong> @_repairService.reportNo</p>
+            }
+            @if (_repairService?.ServiceDate != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextReceiveDate)]:</strong> @_repairService.ServiceDate.ToString("yyyy-MM-dd HH:mm")</p>
+            }
+            @if (_repairService.CompanyName != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextCompanyName)]:</strong> @_repairService.CompanyName</p>
+            }
+            @if (_repairService.Address != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextAddress)]:</strong> @_repairService.Address</p>
+            }
+            @if (_repairService.ContactName != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextContactName)]:</strong> @_repairService.ContactName</p>
+            }
+            @if (_repairService.PhoneNumber != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextPhoneNumber)]:</strong> @_repairService.PhoneNumber</p>
+            }
+            @if (_repairService.itemName != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextItemName)]:</strong> @_repairService.itemName</p>
+            }
+            @if (_repairService.serialNumber != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextSerialNumber)]:</strong> @_repairService.serialNumber</p>
+            }
+            @if (_repairService.CustomerRequest != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextCustomerReq)]:</strong> @_repairService.CustomerRequest</p>
+            }
+            @if (_repairService.Inspection != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextInspection)]:</strong> @_repairService.Inspection</p>
+            }
+            @if (_repairService.Solution != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.Textsolution)]:</strong> @_repairService.Solution</p>
+            }
+            @if (_repairService.ServiceLocation != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextServiceLocation)]:</strong> @_repairService.ServiceLocation</p>
+            }
+            @if (_repairService.ServicePriority != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextPriority)]:</strong> @_repairService.ServicePriority</p>
+            }
+            @if (_repairService.Status != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextStatus)]:</strong> <span style="color: @(GetStatusColor(_repairService.Status))">@_repairService.Status</span></p>
+            }
+            @if (_repairService?.hasContract != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextContract)]:</strong> @(_repairService.hasContract ? "Yes" : "No")</p>
+            }
+            @if (_repairService?.isThirdPartyRepair != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TesthasThirdParty)]:</strong> @(_repairService.isThirdPartyRepair? @Loc[nameof(ResourceStrings.TestThirdPartyRepair)] : @Loc[nameof(ResourceStrings.TestThirdPartySelf)])</p>
+            }
+            @if (_repairService?.createby != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextCreateby)]:</strong> @GetUserNameById(_repairService.createby)</p>
+            }
+            @if (_repairService.inspectDate.HasValue)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextInspectDate)]:</strong> @_repairService.inspectDate?.ToString("yyyy-MM-dd HH:mm")</p>
+            }
+            @if (_repairService.inspectBy != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextInspectby)]:</strong> @GetUserNameById(_repairService.inspectBy)</p>
+            }
+            @if (_repairService.awaitingCustomerConfirmDate.HasValue)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextawaitingCustomerConfirmDate)]:</strong> @_repairService.awaitingCustomerConfirmDate?.ToString("yyyy-MM-dd HH:mm")</p>
+            }
+            @if (_repairService.setAwaitingCustomerConfirmBy != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextsetAwaitingCustomerConfirmBy)]:</strong> @GetUserNameById(_repairService.setAwaitingCustomerConfirmBy)</p>
+            }
+            @if (_repairService.awaitingSparepartDate.HasValue)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.Textwaitsparepart)]:</strong> @_repairService.awaitingSparepartDate?.ToString("yyyy-MM-dd HH:mm")</p>
+            }
+            @if (_repairService.setAwaitingSparepartBy != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextsetAwaitingSparePartBy)]:</strong> @GetUserNameById(_repairService.setAwaitingSparepartBy)</p>
+            }
+            @if (_repairService.repairDate.HasValue)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextRepairDate)]:</strong> @_repairService.repairDate?.ToString("yyyy-MM-dd HH:mm")</p>
+            }
+            @if (_repairService.repairBy != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextRepairBy)]:</strong> @GetUserNameById(_repairService.repairBy)</p>
+            }
+            @if (_repairService.finishedDate.HasValue)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextFinishDate)]:</strong> @_repairService.finishedDate?.ToString("yyyy-MM-dd HH:mm")</p>
+            }
+            @if (_repairService.verifiedBy != null)
+            {
+                <p><strong>@Loc[nameof(ResourceStrings.TextVerifyBy)]:</strong> @GetUserNameById(_repairService.verifiedBy)</p>
+            }
+
+            <div class="image-container">
+                <a href="@GetImagePath(GetCustomerType(_repairService.CompanyName))" target="_blank">
+                    <img src="@GetImagePath(GetCustomerType(_repairService.CompanyName))" class="tooltip-image" />
+                </a>
+            </div>
+        </div>
+
+        <h4>Spare Parts</h4>
+        @if (_repairService.SparePartItems != null && _repairService.SparePartItems.Any())
+        {
+            <table>
+                <thead>
+                    <tr>
+                        <th>@Loc[nameof(ResourceStrings.TextItemName)]</th>
+                        <th>@Loc[nameof(ResourceStrings.TextUsefor)]</th>
+                        <th>@Loc[nameof(ResourceStrings.TextQty)]</th>
+                        <th>@Loc[nameof(ResourceStrings.TextCondition)]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var sparePartItem in _repairService.SparePartItems)
+                    {
+                        var sparePart = _spareParts.FirstOrDefault(sp => sp.Id == sparePartItem.SparePartId);
+                        if (sparePart != null)
+                        {
+                            <tr>
+                                <td data-label="Item Name">@sparePart.ItemName</td>
+                                <td data-label="UseFor">@sparePart.UseFor</td>
+                                <td data-label="Quantity">@sparePartItem.Quantity</td>
+                                <td data-label="Condition">@sparePartItem.Condition</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="no-spare-parts">No spare parts available.</p>
+        }
+    }
+</div>
+
+<SfDialog @ref="dialog" Width="400px" Height="210px" IsModal="true" ShowCloseIcon="true" Visible="@isDialogVisible">
+    <DialogEvents OnOverlayModalClick="@OverlayClick"></DialogEvents>
+    <DialogTemplates>
+        <Header>Warning</Header>
+        <Content>
+            <div class="alert alert-warning">
+                <strong>Warning!</strong> You cannot print this report because the status is not finished.
+            </div>
+        </Content>
+        <FooterTemplate>
+            <DxButton Text="Ok" CssClass="btn btn-primary" Click="OnDialogClose" />
+        </FooterTemplate>
+    </DialogTemplates>
+</SfDialog>
+
+<style>
+    .page-container {
+        background-color: #f7f9fb;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        max-width: 100%;
+        margin: auto;
+        position: relative;
+    }
+
+    .button-container {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .navigate-button {
+        background-color: #33A8D0;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 5px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        display: flex;
+        align-items: center;
+    }
+
+        .navigate-button:hover {
+            background-color: red;
+        }
+
+    .back-button {
+        background-color: #ff6f61;
+    }
+
+        .back-button:hover {
+            background-color: #e55a4c;
+        }
+
+    /* Loading state */
+    .loading-container {
+        text-align: center;
+        padding: 40px;
+    }
+
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #33A8D0;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+
+    @@keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .loading {
+        text-align: center;
+        color: #888;
+        font-size: 18px;
+    }
+
+    /* Error state */
+    .error-container {
+        text-align: center;
+        padding: 40px;
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 8px;
+    }
+
+    .error-icon {
+        font-size: 48px;
+        color: #ff6f61;
+        margin-bottom: 20px;
+    }
+
+    .error-message {
+        color: #856404;
+        font-size: 18px;
+        margin-bottom: 20px;
+    }
+
+    h3 {
+        font-family: 'Roboto', sans-serif;
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    h4 {
+        font-family: 'Roboto', sans-serif;
+        color: #333;
+        margin-top: 20px;
+        font-size: 24px;
+    }
+
+    p {
+        font-family: 'Lato', sans-serif;
+        color: #555;
+        line-height: 1.6;
+        font-size: 16px;
+    }
+
+    .repair-details p {
+        margin-bottom: 10px;
+    }
+
+    .repair-details strong {
+        color: #33A8D0;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background-color: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    th, td {
+        padding: 20px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f4f4f4;
+        color: #333;
+    }
+
+    tr:hover {
+        background-color: #e9f7f6;
+    }
+
+    .no-spare-parts {
+        font-style: italic;
+        color: #aaa;
+    }
+
+    .image-container {
+        flex-shrink: 0;
+        border: 2px solid #e0e0e0;
+        width: 90px;
+        height: 100px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        background-color: #f9f9f9;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+        .image-container:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+        }
+
+    .tooltip-image {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+</style>

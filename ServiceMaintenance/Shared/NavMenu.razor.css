@@ -1,0 +1,55 @@
+﻿.sidebar {
+    min-width: 300px;
+    max-width: 300px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15), 0 0 25px rgba(0, 0, 0, 0.1); /* Soft, multi-layer shadow */
+    transition: transform 0.3s ease-out, box-shadow 0.3s ease-in-out; /* Smooth transition */
+    height: 100%;
+    max-height: 100%;
+    overflow: auto;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0; /* Light border to contrast with the shadow */
+    display: block;
+}
+
+    .sidebar.collapse {
+        display: none;
+    }
+    .sidebar.expand {
+        display: block;
+    }
+   
+
+@media (max-width: 1199.98px) {
+    .sidebar {
+        display: none;
+    }
+
+        .sidebar.expand {
+            position: fixed;
+            top: 3.5rem;
+            left: 0;
+            height: auto;
+            min-width: 100%;
+            z-index: 1050;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2); /* Stronger shadow for mobile */
+        }
+}
+
+::deep .app-sidebar {
+    --dxbl-treeview-spacing-x: 0.5rem;
+    --dxbl-treeview-spacing-y: 1rem;
+}
+
+    ::deep .app-sidebar > .dxbl-scroll-viewer > .dxbl-scroll-viewer-content > .dxbl-treeview-items-container > .dxbl-treeview-item > .dxbl-treeview-item-content > .dxbl-treeview-item-container {
+        --dxbl-treeview-font-weight: 600;
+    }
+
+    ::deep .app-sidebar > .dxbl-scroll-viewer > .dxbl-scroll-viewer-content > .dxbl-treeview-items-container > .dxbl-treeview-item > .dxbl-treeview-item-content > .dxbl-btn.dxbl-invisible {
+        display: none;
+    }
+
+@media (max-width: 1199.98px) {
+    ::deep .app-sidebar {
+        padding-bottom: 0;
+    }
+}

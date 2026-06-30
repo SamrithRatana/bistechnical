@@ -1,0 +1,2471 @@
+﻿@* @using ServiceMaintenance.ViewModel
+@using Microsoft.AspNetCore.SignalR.Client
+@using ServiceMaintenance.Models
+@inject IServiceScopeFactory ServiceScopeFactory
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<div class="smdash-main-container">
+    <div class="smdash-content-wrapper">
+        <div class="smdash-schedules-section">
+            <div class="smdash-schedules-card">
+                <div class="smdash-schedules-header">
+                    <h3 class="smdash-schedules-title">Upcoming Schedules</h3>
+                    <div class="smdash-search-section">
+                        <div class="smdash-search-input-container">
+                            <input type="text"
+                                   class="smdash-search-input"
+                                   placeholder="Search by Serial Number..."
+                                   @bind="searchSerialNumber"
+                                   @onkeypress="OnSearchKeyPress"
+                                   @oninput="OnSearchInputChanged"
+                                   @onfocus="OnSearchFocus"
+                                   @onblur="OnSearchBlur" />
+
+                            @if (showReportDropdown && availableReportNumbers.Count > 0)
+                            {
+                                <div class="smdash-report-dropdown">
+                                    <div class="smdash-report-dropdown-header">
+                                        <span>Available Report Numbers:</span>
+                                    </div>
+                                    @foreach (var reportInfo in availableReportNumbers)
+                                    {
+                                        <div class="smdash-report-dropdown-item"
+                                             @onclick="() => SelectReportNumber(reportInfo.ReportNo)"
+                                             @onclick:stopPropagation="true">
+                                            <div class="smdash-report-main">
+                                                <strong>@reportInfo.ReportNo</strong>
+                                            </div>
+                                            <div class="smdash-report-details">
+                                                @reportInfo.CompanyName - @reportInfo.ItemName
+                                            </div>
+                                            <div class="smdash-report-status">
+                                                Status: @reportInfo.Status
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        <button class="smdash-search-btn" @onclick="SearchBySerialNumber">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <polyline points="21,21 16.65,16.65"></polyline>
+                            </svg>
+                        </button>
+
+                        @if (!string.IsNullOrEmpty(selectedReportNumber))
+                        {
+                            <button class="smdash-clear-btn" @onclick="ClearSelection" title="Clear Selection">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div class="smdash-schedules-body">
+                    @if (isLoadingSchedules)
+                    {
+                        <div class="smdash-loading">
+                            <p>Loading schedules...</p>
+                        </div>
+                    }
+                    else if (dynamicSchedules.Count > 0)
+                    {
+                        @for (int i = 0; i < dynamicSchedules.Count; i++)
+                        {
+                            var schedule = dynamicSchedules[i];
+                            var isLast = i == dynamicSchedules.Count - 1;
+
+                            <div class="smdash-schedule-item">
+                                <div class="smdash-schedule-time">@schedule.Time</div>
+                                <div class="smdash-timeline-wrapper">
+                                    <div class="smdash-timeline-circle smdash-timeline-@GetTimelineColor(schedule.Type)"></div>
+                                    @if (!isLast)
+                                    {
+                                        <div class="smdash-timeline-line"></div>
+                                    }
+                                </div>
+                                <div class="smdash-schedule-content">
+                                    <div class="smdash-schedule-main-text">@schedule.Title</div>
+                                    @if (!string.IsNullOrEmpty(schedule.Subtitle))
+                                    {
+                                        <div class="smdash-schedule-sub-text">@schedule.Subtitle</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="smdash-no-data">
+                            <p>No upcoming schedules found.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="smdash-clients-section">
+            <div class="smdash-clients-card">
+                <div class="smdash-clients-header">
+                    <div class="smdash-header-left">
+                        <h3 class="smdash-clients-title">Members Activity</h3>
+                        <div class="smdash-view-options">
+                            <label class="smdash-radio-option">
+                                <input type="radio" name="repairView" value="currentmonth" @onchange="OnRepairViewChanged" checked="@(repairViewMode == "currentmonth")" />
+                                <span class="smdash-radio-text">Current Month</span>
+                            </label>
+                            <label class="smdash-radio-option">
+                                <input type="radio" name="repairView" value="topitem" @onchange="OnRepairViewChanged" checked="@(repairViewMode == "topitem")" />
+                                <span class="smdash-radio-text">Top Item Name</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="smdash-clients-body">
+                    @if (isLoading)
+                    {
+                        <div class="smdash-loading">
+                            <p>Loading users...</p>
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="smdash-error">
+                            <p>@errorMessage</p>
+                        </div>
+                    }
+                    else if (topPayingClients.Count > 0)
+                    {
+                        <div class="smdash-clients-table-wrapper">
+                            <div class="smdash-clients-table-header">
+                                <div class="smdash-header-profile">Profile</div>
+                                <div class="smdash-header-status">Status</div>
+                                <div class="smdash-header-repair">
+                                    <span>@(repairViewMode == "currentmonth" ? "Current Month" : "Top Repair Item")</span>
+                                </div>
+                            </div>
+                            <div class="smdash-clients-table-content">
+                                @for (int i = 0; i < rankedClients.Count; i++)
+                                {
+                                    var (client, rank) = rankedClients[i];
+                                    var repairCount = GetRepairCount(client);
+
+                                    <div class="smdash-client-row @(selectedClientId == client.Id ? "selected" : "")"
+                                         @onclick="() => OnClientRowClick(client.Id)"
+                                         @onclick:stopPropagation="true">
+
+                                        <div class="smdash-client-profile">
+                                            @if (rank <= 3 && repairCount > 0)
+                                            {
+                                                <div class="smdash-rank-badge smdash-rank-@rank">
+                                                    <div class="smdash-rank-icon">@GetRankIcon(rank)</div>
+                                                    <span class="smdash-rank-text">@GetRankText(rank)</span>
+                                                </div>
+                                            }
+                                            <div class="smdash-profile-container">
+                                                @if (!string.IsNullOrEmpty(client.ProfilePictureBase64))
+                                                {
+                                                    <img src="data:image/jpeg;base64,@client.ProfilePictureBase64"
+                                                         alt="@client.Name"
+                                                         class="smdash-client-profile-image" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="smdash-client-avatar" style="background-color: @client.AvatarColor;">
+                                                        @client.Initials
+                                                    </div>
+                                                }
+                                                @if (rank <= 3 && repairCount > 0)
+                                                {
+                                                    <div class="smdash-rank-overlay smdash-rank-overlay-@rank"></div>
+                                                }
+                                            </div>
+                                            <div class="smdash-client-info">
+                                                <div class="smdash-client-name">@client.Name</div>
+                                                <div class="smdash-client-subject">@client.Email</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="smdash-client-status">
+                                            <span class="smdash-status-badge smdash-status-@GetStatusClass(client.Status)">
+                                                <span class="smdash-status-indicator smdash-status-indicator-@GetStatusClass(client.Status)"></span>
+                                                <div class="smdash-status-content">
+                                                    @client.Status
+                                                    @if (client.Status == "Offline" && !string.IsNullOrEmpty(client.OfflineTime))
+                                                    {
+                                                        <div class="smdash-offline-time">@client.OfflineTime</div>
+                                                    }
+                                                </div>
+                                            </span>
+                                        </div>
+
+                                        <div class="smdash-client-repair">
+                                            @if (repairViewMode == "currentmonth")
+                                            {
+                                                @if (client.CurrentMonthRepairCount > 0)
+                                                {
+                                                    <div class="smdash-total-repair">
+                                                        <div class="smdash-total-count smdash-current-month-count">@client.CurrentMonthRepairCount</div>
+                                                        <div class="smdash-total-label">this month</div>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="smdash-no-repairs">No repairs</div>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                @if (!string.IsNullOrEmpty(client.TopRepairItem))
+                                                {
+                                                    <div class="smdash-repair-item">
+                                                        <div class="smdash-repair-name">@client.TopRepairItem</div>
+                                                        @if (client.TopRepairCount > 1)
+                                                        {
+                                                            <div class="smdash-repair-count">+@(client.TopRepairCount - 1) more</div>
+                                                        }
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="smdash-no-repairs">No repairs</div>
+                                                }
+                                            }
+                                        </div>
+
+                                        <div class="smdash-row-indicator">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="9,18 15,12 9,6"></polyline>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="smdash-no-data">
+                            <p>No users found.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (showClientDetailModal && selectedClient != null)
+{
+    <div class="smdash-modal-overlay" @onclick="CloseClientDetailModal">
+        <div class="smdash-modal-container" @onclick:stopPropagation="true">
+            <div class="smdash-modal-header">
+                <h3 class="smdash-modal-title">User Details</h3>
+                <button class="smdash-modal-close-btn" @onclick="CloseClientDetailModal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="smdash-modal-body">
+                <div class="smdash-detail-profile-section">
+                    <div class="smdash-detail-profile-image-container">
+                        @if (!string.IsNullOrEmpty(selectedClient.ProfilePictureBase64))
+                        {
+                            <img src="data:image/jpeg;base64,@selectedClient.ProfilePictureBase64"
+                                 alt="@selectedClient.Name"
+                                 class="smdash-detail-profile-image" />
+                        }
+                        else
+                        {
+                            <div class="smdash-detail-profile-avatar" style="background-color: @selectedClient.AvatarColor;">
+                                @selectedClient.Initials
+                            </div>
+                        }
+                    </div>
+                    <div class="smdash-detail-profile-info">
+                        <h4 class="smdash-detail-name">@selectedClient.Name</h4>
+                        <p class="smdash-detail-email">@selectedClient.Email</p>
+                        <div class="smdash-detail-status">
+                            <span class="smdash-detail-status-indicator smdash-detail-status-@GetStatusClass(selectedClient.Status)"></span>
+                            @selectedClient.Status
+                            @if (selectedClient.Status == "Offline" && !string.IsNullOrEmpty(selectedClient.OfflineTime))
+                            {
+                                <span class="smdash-detail-offline-time">(@selectedClient.OfflineTime)</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="smdash-detail-stats-grid">
+                    <div class="smdash-detail-stat-card">
+                        <div class="smdash-detail-stat-value smdash-detail-current-month">@selectedClient.CurrentMonthRepairCount</div>
+                        <div class="smdash-detail-stat-label">This Month</div>
+                    </div>
+                    <div class="smdash-detail-stat-card">
+                        <div class="smdash-detail-stat-value">@selectedClient.PhoneNumber</div>
+                        <div class="smdash-detail-stat-label">Phone</div>
+                    </div>
+                    <div class="smdash-detail-stat-card">
+                        <div class="smdash-detail-stat-value">@selectedClient.RolesDisplay</div>
+                        <div class="smdash-detail-stat-label">Roles</div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(selectedClient.TopRepairItem))
+                {
+                    <div class="smdash-detail-repair-section">
+                        <h5 class="smdash-detail-section-title">Top Repair Item</h5>
+                        <div class="smdash-detail-repair-card">
+                            <div class="smdash-detail-repair-name">@selectedClient.TopRepairItem</div>
+                            <div class="smdash-detail-repair-count">@selectedClient.TopRepairCount times</div>
+                        </div>
+                    </div>
+                }
+
+                <div class="smdash-detail-repair-history-section">
+                    @if (loadingRepairHistory)
+                    {
+                        <div class="smdash-detail-loading">Loading repair history...</div>
+                    }
+                    else if (displayRepairHistory.Count > 0)
+                    {
+                        <div class="smdash-detail-repair-history">
+                            <h5 class="smdash-detail-section-title">
+                                @GetRepairHistoryTitle() (@displayRepairHistory.Count items)
+                            </h5>
+                            <div class="smdash-detail-repair-table-wrapper">
+                                <div class="smdash-detail-repair-table-container">
+                                    <table class="smdash-detail-repair-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="smdash-th-date">Finished Date</th>
+                                                <th class="smdash-th-company">Company Name</th>
+                                                <th class="smdash-th-item">Item Name</th>
+                                                <th class="smdash-th-serial">Serial Number</th>
+                                                <th class="smdash-th-status">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var repair in displayRepairHistory.OrderByDescending(r => r.finishedDate ?? r.ServiceDate))
+                                            {
+                                                <tr>
+                                                    <td class="smdash-td-date">@((repair.finishedDate ?? repair.ServiceDate).ToString("MMM dd, yyyy"))</td>
+                                                    <td class="smdash-td-company">@repair.CompanyName</td>
+                                                    <td class="smdash-td-item">@repair.itemName</td>
+                                                    <td class="smdash-td-serial">@repair.serialNumber</td>
+                                                    <td class="smdash-td-status">
+                                                        <span class="smdash-status-badge-table smdash-status-@repair.Status.ToLower()">@repair.Status</span>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="smdash-detail-no-data">
+                            <p>No repair data available for the selected view mode.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    #region Models
+    public sealed class ScheduleItem
+    {
+        public string Time { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Subtitle { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string SerialNumber { get; set; } = "";
+        public string ReportNumber { get; set; } = "";
+        public DateTime DateTime { get; set; }
+        public string Status { get; set; } = "";
+        public string CompanyName { get; set; } = "";
+        public string ItemName { get; set; } = "";
+        public int StatusPriority { get; set; } = 0;
+    }
+
+    public sealed class ClientItem
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string PhoneNumber { get; set; } = "";
+        public string RolesDisplay { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string AvatarColor { get; set; } = "";
+        public string Initials { get; set; } = "";
+        public string ProfilePictureBase64 { get; set; } = "";
+        public DateTime? LastSeenAt { get; set; }
+        public string OfflineTime { get; set; } = "";
+        public string TopRepairItem { get; set; } = "";
+        public int TopRepairCount { get; set; } = 0;
+        public int CurrentMonthRepairCount { get; set; } = 0;
+    }
+
+    public sealed class ReportNumberInfo
+    {
+        public string ReportNo { get; set; } = "";
+        public string CompanyName { get; set; } = "";
+        public string ItemName { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string SerialNumber { get; set; } = "";
+    }
+    #endregion
+
+    #region Constants
+    private static readonly HashSet<string> AllowedUserIds = new()
+    {
+        "24b12f9a-e26c-4c06-ade0-61b074c49071",
+        "3a633fc9-5d94-4ea3-9ff6-9e0800a9a0c7",
+        "cf0f8506-bae6-433d-8ddc-d2d780294233",
+        "e466c65d-8183-49fb-9f4c-6e0843ea577a",
+        "f4edefb2-440a-4fa6-b12f-3dbf5bd4ceeb"
+    };
+
+    private static readonly string[] AvatarColors = { "#16a34a", "#ea580c", "#2563eb", "#9333ea", "#dc2626", "#059669", "#7c3aed", "#0891b2" };
+    private static readonly Guid[] AllowedUserGuids = AllowedUserIds.Select(Guid.Parse).ToArray();
+    private static readonly TimeSpan CacheExpiry = TimeSpan.FromMinutes(10);
+
+    private readonly int currentMonth = DateTime.Now.Month;
+    private readonly int currentYear = DateTime.Now.Year;
+    #endregion
+
+    #region State Variables
+    private List<ClientItem> topPayingClients = new();
+    private List<(ClientItem client, int rank)> rankedClients = new();
+    private bool isLoading = true;
+    private string errorMessage = "";
+    private string repairViewMode = "currentmonth";
+
+    // Dynamic Schedule Variables
+    private List<ScheduleItem> dynamicSchedules = new();
+    private bool isLoadingSchedules = true;
+    private string searchSerialNumber = "";
+    private string selectedReportNumber = "";
+    private RepairServices[] allRepairServices = Array.Empty<RepairServices>();
+
+    // Report Number Dropdown Variables
+    private List<ReportNumberInfo> availableReportNumbers = new();
+    private bool showReportDropdown = false;
+    private Timer? dropdownTimer;
+
+    // Cache
+    private Dictionary<string, (Dictionary<string, int> itemCounts, int currentMonthCount)> repairDataCache = new();
+    private DateTime repairDataCacheTime = DateTime.MinValue;
+
+    // SignalR
+    private HubConnection? hubConnection;
+    private HashSet<string> onlineUsers = new();
+    private Timer? offlineTimeUpdateTimer;
+
+    // Modal state
+    private bool showClientDetailModal = false;
+    private ClientItem? selectedClient = null;
+    private string selectedClientId = "";
+    private List<ServiceMaintenance.Models.RepairServices> selectedClientAllRepairs = new();
+    private List<ServiceMaintenance.Models.RepairServices> displayRepairHistory = new();
+    private bool loadingRepairHistory = false;
+    #endregion
+
+    #region Lifecycle Methods
+    protected override async Task OnInitializedAsync()
+    {
+        var tasks = new[]
+        {
+            LoadUsersAsync(),
+            LoadDynamicSchedulesAsync(),
+            InitializeSignalRConnection()
+        };
+
+        await Task.WhenAll(tasks);
+        StartOfflineTimeUpdateTimer();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        offlineTimeUpdateTimer?.Dispose();
+        dropdownTimer?.Dispose();
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+    #endregion
+
+    #region Data Loading - Optimized
+    private async Task LoadUsersAsync()
+    {
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            using var scope = ServiceScopeFactory.CreateScope();
+            var userService = scope.ServiceProvider.GetRequiredService<UserService>();
+
+            await LoadRepairDataCacheAsync();
+            var users = await userService.GetUsersAsync();
+
+            if (users?.Any() != true)
+            {
+                topPayingClients.Clear();
+                rankedClients.Clear();
+                return;
+            }
+
+            var allowedUsers = users.Where(u => AllowedUserIds.Contains(u.Id)).ToArray();
+            topPayingClients.Clear();
+            topPayingClients.Capacity = allowedUsers.Length;
+
+            for (int i = 0; i < allowedUsers.Length; i++)
+            {
+                var user = allowedUsers[i];
+                var (repairCounts, currentMonthRepairs) = GetCachedRepairData(user.Id);
+                var topRepairItem = repairCounts.Count > 0
+                    ? repairCounts.Aggregate((l, r) => l.Value > r.Value ? l : r)
+                    : default(KeyValuePair<string, int>);
+
+                topPayingClients.Add(new ClientItem
+                {
+                    Id = user.Id,
+                    Name = GetDisplayName(user),
+                    Email = user.Email ?? "No email",
+                    PhoneNumber = user.PhoneNumber ?? "N/A",
+                    RolesDisplay = user.Roles?.Any() == true ? string.Join(", ", user.Roles) : "No roles",
+                    Status = onlineUsers.Contains(user.Id) ? "Online" : "Offline",
+                    AvatarColor = AvatarColors[i % AvatarColors.Length],
+                    Initials = GetInitials(user.FirstName, user.LastName, user.UserName),
+                    ProfilePictureBase64 = ConvertProfilePictureToBase64(user.ProfilePicture),
+                    TopRepairItem = topRepairItem.Key ?? "",
+                    TopRepairCount = topRepairItem.Value,
+                    CurrentMonthRepairCount = currentMonthRepairs
+                });
+            }
+
+            UpdateRankedClients();
+            _ = Task.Run(RequestLastSeenData);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading users: {ex.Message}";
+            Console.WriteLine($"Error loading users: {ex.Message}");
+            topPayingClients.Clear();
+            rankedClients.Clear();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadRepairDataCacheAsync()
+    {
+        if (DateTime.UtcNow - repairDataCacheTime < CacheExpiry && repairDataCache.Count > 0)
+            return;
+
+        using var scope = ServiceScopeFactory.CreateScope();
+        var repairService = scope.ServiceProvider.GetRequiredService<RepairItemService>();
+        var allRepairs = await repairService.GetAllRepairServicesAsync();
+
+        if (allRepairs == null) return;
+
+        var finishedRepairs = allRepairs
+            .Where(r => r.Status == "Finished" &&
+                       r.repairBy.HasValue &&
+                       r.finishedDate.HasValue &&
+                       r.finishedDate.Value.Month == currentMonth &&
+                       r.finishedDate.Value.Year == currentYear &&
+                       AllowedUserGuids.Contains(r.repairBy.Value))
+            .ToArray();
+
+        repairDataCache.Clear();
+
+        var groupedRepairs = finishedRepairs
+            .GroupBy(r => r.repairBy.ToString())
+            .ToDictionary(g => g.Key, g => g.ToArray());
+
+        foreach (var userId in AllowedUserIds)
+        {
+            if (groupedRepairs.TryGetValue(userId, out var userRepairs))
+            {
+                var currentMonthCount = userRepairs.Length;
+                var itemCounts = userRepairs
+                    .Where(r => !string.IsNullOrEmpty(r.itemName))
+                    .GroupBy(r => r.itemName)
+                    .ToDictionary(g => g.Key, g => g.Count());
+
+                repairDataCache[userId] = (itemCounts, currentMonthCount);
+            }
+            else
+            {
+                repairDataCache[userId] = (new Dictionary<string, int>(), 0);
+            }
+        }
+
+        repairDataCacheTime = DateTime.UtcNow;
+    }
+
+    private async Task LoadDynamicSchedulesAsync()
+    {
+        try
+        {
+            isLoadingSchedules = true;
+            StateHasChanged();
+
+            using var scope = ServiceScopeFactory.CreateScope();
+            var repairService = scope.ServiceProvider.GetRequiredService<RepairItemService>();
+            var repairs = await repairService.GetAllRepairServicesAsync();
+            allRepairServices = repairs?.ToArray() ?? Array.Empty<RepairServices>();
+
+            if (allRepairServices.Length > 0 && string.IsNullOrEmpty(selectedReportNumber))
+            {
+                var lastRepair = allRepairServices
+                    .Where(r => !string.IsNullOrEmpty(r.reportNo))
+                    .OrderByDescending(r => r.ServiceDate)
+                    .FirstOrDefault();
+
+                if (lastRepair != null)
+                {
+                    selectedReportNumber = lastRepair.reportNo;
+                    searchSerialNumber = lastRepair.serialNumber ?? "";
+                }
+            }
+
+            GenerateScheduleItems();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading schedules: {ex.Message}");
+            dynamicSchedules.Clear();
+        }
+        finally
+        {
+            isLoadingSchedules = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadClientRepairHistory(string userId)
+    {
+        try
+        {
+            loadingRepairHistory = true;
+            StateHasChanged();
+
+            using var scope = ServiceScopeFactory.CreateScope();
+            var repairService = scope.ServiceProvider.GetRequiredService<RepairItemService>();
+            var allRepairs = await repairService.GetAllRepairServicesAsync();
+
+            var userGuid = Guid.Parse(userId);
+            selectedClientAllRepairs = allRepairs?
+                .Where(r => r.repairBy == userGuid)
+                .OrderByDescending(r => r.finishedDate ?? r.ServiceDate)
+                .ToList() ?? new List<ServiceMaintenance.Models.RepairServices>();
+
+            UpdateDisplayRepairHistory();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading repair history: {ex.Message}");
+            selectedClientAllRepairs.Clear();
+            displayRepairHistory.Clear();
+        }
+        finally
+        {
+            loadingRepairHistory = false;
+            StateHasChanged();
+        }
+    }
+    #endregion
+
+    #region Schedule Methods - Optimized
+    private void GenerateScheduleItems()
+    {
+        dynamicSchedules.Clear();
+
+        if (allRepairServices.Length == 0) return;
+
+        var filteredRepairs = allRepairServices.Where(r =>
+            (string.IsNullOrEmpty(searchSerialNumber) ||
+             (!string.IsNullOrEmpty(r.serialNumber) && r.serialNumber.Contains(searchSerialNumber, StringComparison.OrdinalIgnoreCase))) &&
+            (string.IsNullOrEmpty(selectedReportNumber) ||
+             (!string.IsNullOrEmpty(r.reportNo) && r.reportNo.Equals(selectedReportNumber, StringComparison.OrdinalIgnoreCase)))
+        ).ToArray();
+
+        var schedules = new List<ScheduleItem>();
+        var now = DateTime.Now;
+
+        foreach (var repair in filteredRepairs)
+        {
+            var statusTimeline = CreateStatusTimeline(repair, now);
+            schedules.AddRange(statusTimeline);
+        }
+
+        dynamicSchedules = schedules
+            .OrderByDescending(s => s.DateTime)
+            .Take(20)
+            .ToList();
+    }
+
+    private List<ScheduleItem> CreateStatusTimeline(RepairServices repair, DateTime now)
+    {
+        var timeline = new List<(DateTime date, string status, string action, string type, int priority)>();
+
+        if (repair.ServiceDate != default)
+            timeline.Add((repair.ServiceDate, "Created", "Service Received", "created", 1));
+
+        if (repair.inspectDate.HasValue)
+            timeline.Add((repair.inspectDate.Value, "Inspection", "Inspection Completed", "inspect", 2));
+
+        if (repair.awaitingCustomerConfirmDate.HasValue)
+            timeline.Add((repair.awaitingCustomerConfirmDate.Value, "Awaiting Confirmation", "Awaiting Customer", "waiting", 3));
+
+        if (repair.awaitingSparepartDate.HasValue)
+            timeline.Add((repair.awaitingSparepartDate.Value, "Awaiting Parts", "Waiting for Parts", "sparepart", 4));
+
+        if (repair.repairDate.HasValue)
+            timeline.Add((repair.repairDate.Value, "In Repair", "Repair Started", "repair", 5));
+
+        if (repair.thirdPartyRepairDate.HasValue)
+            timeline.Add((repair.thirdPartyRepairDate.Value, "Third Party", "Third Party Repair", "thirdparty", 6));
+
+        if (repair.finishedDate.HasValue)
+            timeline.Add((repair.finishedDate.Value, "Completed", "Repair Finished", "finished", 7));
+
+        if (repair.customerRejectedDate.HasValue)
+            timeline.Add((repair.customerRejectedDate.Value, "Rejected", "Customer Rejected", "rejected", 8));
+
+        if (repair.unrepairableDate.HasValue)
+            timeline.Add((repair.unrepairableDate.Value, "Unrepairable", "Cannot Repair", "unrepairable", 9));
+
+        timeline.Sort((a, b) => a.date.CompareTo(b.date));
+
+        var scheduleItems = new List<ScheduleItem>(timeline.Count);
+
+        for (int i = 0; i < timeline.Count; i++)
+        {
+            var item = timeline[i];
+            var isLatest = i == timeline.Count - 1;
+
+            var timeDisplay = FormatTimeDisplay(item.date, now);
+            var title = $"{item.action}{(isLatest ? " (Current)" : "")}";
+            var subtitle = GetSubtitleByType(item.type, repair);
+
+            scheduleItems.Add(new ScheduleItem
+            {
+                Time = timeDisplay,
+                Title = title,
+                Subtitle = subtitle,
+                SerialNumber = repair.serialNumber,
+                ReportNumber = repair.reportNo,
+                Type = item.type,
+                DateTime = item.date,
+                Status = repair.Status,
+                CompanyName = repair.CompanyName,
+                ItemName = repair.itemName,
+                StatusPriority = isLatest ? 0 : item.priority
+            });
+        }
+
+        return scheduleItems;
+    }
+
+    private string GetSubtitleByType(string type, RepairServices repair) => type switch
+    {
+        "created" => repair.itemName ?? "Item received",
+        "inspect" => repair.Inspection ?? "Under inspection",
+        "waiting" => "Waiting for customer confirmation",
+        "sparepart" => "Waiting for spare parts",
+        "repair" => "Under repair process",
+        "thirdparty" => "Third party repair",
+        "finished" => repair.Solution ?? "Repair completed",
+        "rejected" => "Rejected by customer",
+        "unrepairable" => "Cannot be repaired",
+        _ => repair.itemName ?? "Unknown"
+    };
+
+    private static string FormatTimeDisplay(DateTime date, DateTime now)
+    {
+        var isPast = date < now;
+        var isToday = date.Date == now.Date;
+
+        if (isToday)
+            return date.ToString("HH:mm") + " (Today)";
+
+        if (isPast)
+        {
+            var timeDiff = now - date;
+            return timeDiff.TotalDays >= 1
+                ? date.ToString("MMM dd") + $" ({(int)timeDiff.TotalDays}d ago)"
+                : timeDiff.TotalHours >= 1
+                    ? date.ToString("HH:mm") + $" ({(int)timeDiff.TotalHours}h ago)"
+                    : date.ToString("HH:mm") + " (Recent)";
+        }
+        else
+        {
+            var timeDiff = date - now;
+            return timeDiff.TotalDays >= 1
+                ? date.ToString("MMM dd") + $" (in {(int)timeDiff.TotalDays}d)"
+                : timeDiff.TotalHours >= 1
+                    ? date.ToString("HH:mm") + $" (in {(int)timeDiff.TotalHours}h)"
+                    : date.ToString("HH:mm") + " (Soon)";
+        }
+    }
+
+    private void UpdateAvailableReportNumbers()
+    {
+        availableReportNumbers.Clear();
+
+        if (string.IsNullOrEmpty(searchSerialNumber) || allRepairServices.Length == 0)
+            return;
+
+        var matchingRepairs = allRepairServices
+            .Where(r => !string.IsNullOrEmpty(r.serialNumber) &&
+                       r.serialNumber.Contains(searchSerialNumber, StringComparison.OrdinalIgnoreCase) &&
+                       !string.IsNullOrEmpty(r.reportNo))
+            .GroupBy(r => r.reportNo)
+            .Select(g => g.First())
+            .OrderByDescending(r => r.ServiceDate)
+            .Take(10)
+            .ToArray();
+
+        availableReportNumbers.Capacity = matchingRepairs.Length;
+        foreach (var repair in matchingRepairs)
+        {
+            availableReportNumbers.Add(new ReportNumberInfo
+            {
+                ReportNo = repair.reportNo,
+                CompanyName = repair.CompanyName ?? "Unknown Company",
+                ItemName = repair.itemName ?? "Unknown Item",
+                Status = repair.Status ?? "Unknown Status",
+                SerialNumber = repair.serialNumber ?? ""
+            });
+        }
+    }
+    #endregion
+
+    #region SignalR Connection - Optimized
+    private async Task InitializeSignalRConnection()
+    {
+        try
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/chathub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            hubConnection.On<string>("UserConnected", userId =>
+            {
+                onlineUsers.Add(userId);
+                UpdateUserStatus(userId, "Online");
+                InvokeAsync(StateHasChanged);
+            });
+
+            hubConnection.On<string, DateTime>("UserDisconnected", (userId, disconnectedAt) =>
+            {
+                onlineUsers.Remove(userId);
+                UpdateUserStatusWithLastSeen(userId, "Offline", disconnectedAt);
+                InvokeAsync(StateHasChanged);
+            });
+
+            hubConnection.On<string, DateTime>("UpdateLastSeen", (userId, lastSeenAt) =>
+            {
+                UpdateUserLastSeen(userId, lastSeenAt);
+                InvokeAsync(StateHasChanged);
+            });
+
+            await hubConnection.StartAsync();
+
+            var currentOnlineUsers = await hubConnection.InvokeAsync<IEnumerable<string>>("GetOnlineUsers");
+            onlineUsers = new HashSet<string>(currentOnlineUsers);
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing SignalR connection: {ex.Message}");
+        }
+    }
+
+    private async Task RequestLastSeenData()
+    {
+        try
+        {
+            if (hubConnection?.State == HubConnectionState.Connected)
+            {
+                var lastSeenData = await hubConnection.InvokeAsync<Dictionary<string, DateTime>>("GetLastSeenData");
+                if (lastSeenData?.Count > 0)
+                {
+                    foreach (var kvp in lastSeenData)
+                    {
+                        UpdateUserLastSeen(kvp.Key, kvp.Value);
+                    }
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error requesting last seen data: {ex.Message}");
+        }
+    }
+    #endregion
+
+    #region Event Handlers
+    private async Task OnClientRowClick(string clientId)
+    {
+        selectedClientId = clientId;
+        selectedClient = topPayingClients.FirstOrDefault(c => c.Id == clientId);
+
+        if (selectedClient != null)
+        {
+            showClientDetailModal = true;
+            await LoadClientRepairHistory(clientId);
+        }
+    }
+
+    private void CloseClientDetailModal()
+    {
+        showClientDetailModal = false;
+        selectedClient = null;
+        selectedClientId = "";
+        selectedClientAllRepairs.Clear();
+        displayRepairHistory.Clear();
+    }
+
+    private void OnRepairViewChanged(ChangeEventArgs e)
+    {
+        repairViewMode = e.Value?.ToString() ?? "currentmonth";
+        UpdateRankedClients();
+        UpdateDisplayRepairHistory();
+        StateHasChanged();
+    }
+
+    private async Task SearchBySerialNumber()
+    {
+        if (allRepairServices.Length > 0)
+        {
+            UpdateAvailableReportNumbers();
+            GenerateScheduleItems();
+        }
+        else
+        {
+            await LoadDynamicSchedulesAsync();
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchBySerialNumber();
+        }
+    }
+
+    private async Task OnSearchInputChanged(ChangeEventArgs e)
+    {
+        searchSerialNumber = e.Value?.ToString() ?? "";
+        selectedReportNumber = "";
+
+        dropdownTimer?.Dispose();
+
+        if (string.IsNullOrEmpty(searchSerialNumber))
+        {
+            availableReportNumbers.Clear();
+            showReportDropdown = false;
+            await SearchBySerialNumber();
+        }
+        else
+        {
+            dropdownTimer = new Timer(async _ =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    UpdateAvailableReportNumbers();
+                    showReportDropdown = availableReportNumbers.Count > 0;
+                    StateHasChanged();
+                });
+            }, null, 500, Timeout.Infinite);
+        }
+    }
+
+    private void OnSearchFocus()
+    {
+        if (!string.IsNullOrEmpty(searchSerialNumber) && availableReportNumbers.Count > 0)
+        {
+            showReportDropdown = true;
+            StateHasChanged();
+        }
+    }
+
+    private void OnSearchBlur()
+    {
+        Task.Delay(200).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                showReportDropdown = false;
+                StateHasChanged();
+            });
+        });
+    }
+
+    private async Task SelectReportNumber(string reportNo)
+    {
+        selectedReportNumber = reportNo;
+        showReportDropdown = false;
+        await SearchBySerialNumber();
+    }
+
+    private async Task ClearSelection()
+    {
+        selectedReportNumber = "";
+        await SearchBySerialNumber();
+    }
+    #endregion
+
+    #region User Status Updates - Optimized
+    private void UpdateUserStatus(string userId, string status)
+    {
+        var user = topPayingClients.FirstOrDefault(c => c.Id == userId);
+        if (user != null)
+        {
+            user.Status = status;
+            if (status == "Online")
+            {
+                user.LastSeenAt = null;
+                user.OfflineTime = "";
+            }
+        }
+    }
+
+    private void UpdateUserStatusWithLastSeen(string userId, string status, DateTime lastSeenAt)
+    {
+        var user = topPayingClients.FirstOrDefault(c => c.Id == userId);
+        if (user != null)
+        {
+            user.Status = status;
+            user.LastSeenAt = lastSeenAt;
+            if (status == "Offline")
+            {
+                user.OfflineTime = FormatOfflineTime(DateTime.UtcNow - lastSeenAt);
+            }
+        }
+    }
+
+    private void UpdateUserLastSeen(string userId, DateTime lastSeenAt)
+    {
+        var user = topPayingClients.FirstOrDefault(c => c.Id == userId);
+        if (user?.Status == "Offline")
+        {
+            user.LastSeenAt = lastSeenAt;
+            user.OfflineTime = FormatOfflineTime(DateTime.UtcNow - lastSeenAt);
+        }
+    }
+
+    private void StartOfflineTimeUpdateTimer()
+    {
+        offlineTimeUpdateTimer = new Timer(async _ =>
+        {
+            UpdateOfflineTimes();
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+    }
+
+    private void UpdateOfflineTimes()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var client in topPayingClients.Where(c => c.Status == "Offline" && c.LastSeenAt.HasValue))
+        {
+            client.OfflineTime = FormatOfflineTime(now - client.LastSeenAt.Value);
+        }
+    }
+    #endregion
+
+    #region Helper Methods - Optimized
+    private (Dictionary<string, int> itemCounts, int currentMonthCount) GetCachedRepairData(string userId) =>
+        repairDataCache.TryGetValue(userId, out var data) ? data : (new Dictionary<string, int>(), 0);
+
+    private void UpdateRankedClients()
+    {
+        rankedClients = topPayingClients
+            .OrderByDescending(GetRepairCount)
+            .ThenBy(c => c.Name)
+            .Select((client, index) => (client, index + 1))
+            .ToList();
+    }
+
+    private void UpdateDisplayRepairHistory()
+    {
+        if (selectedClientAllRepairs.Count == 0)
+        {
+            displayRepairHistory.Clear();
+            return;
+        }
+
+        displayRepairHistory = repairViewMode switch
+        {
+            "currentmonth" => selectedClientAllRepairs.Where(r =>
+                r.Status == "Finished" &&
+                r.finishedDate.HasValue &&
+                r.finishedDate.Value.Month == currentMonth &&
+                r.finishedDate.Value.Year == currentYear).ToList(),
+            "topitem" => selectedClientAllRepairs.Where(r =>
+                r.Status == "Finished" &&
+                !string.IsNullOrEmpty(selectedClient?.TopRepairItem) &&
+                r.itemName == selectedClient.TopRepairItem).ToList(),
+            _ => selectedClientAllRepairs.Where(r => r.Status == "Finished").ToList()
+        };
+    }
+
+    private int GetRepairCount(ClientItem client) => repairViewMode switch
+    {
+        "currentmonth" => client.CurrentMonthRepairCount,
+        "topitem" => client.TopRepairCount,
+        _ => client.CurrentMonthRepairCount
+    };
+
+    private string GetRepairHistoryTitle() => repairViewMode switch
+    {
+        "currentmonth" => "Current Month Finished Repairs",
+        "topitem" => $"Finished Repairs for {selectedClient?.TopRepairItem}",
+        _ => "Finished Repair History"
+    };
+
+    private static string GetDisplayName(dynamic user) =>
+        !string.IsNullOrEmpty(user.DisplayName) ? user.DisplayName : user.UserName ?? "Unknown User";
+
+    private static string GetInitials(string firstName, string lastName, string userName)
+    {
+        if (!string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(lastName))
+            return $"{firstName[0]}{lastName[0]}".ToUpper();
+
+        if (!string.IsNullOrEmpty(userName))
+            return userName.Length >= 2 ? userName[..2].ToUpper() : userName[0].ToString().ToUpper();
+
+        return "??";
+    }
+
+    private static string ConvertProfilePictureToBase64(byte[] profilePicture) =>
+        profilePicture?.Length > 0 ? Convert.ToBase64String(profilePicture) : string.Empty;
+
+    private static string FormatOfflineTime(TimeSpan timeOffline) =>
+        timeOffline.TotalDays >= 1 ? $"{(int)timeOffline.TotalDays}d ago" :
+        timeOffline.TotalHours >= 1 ? $"{(int)timeOffline.TotalHours}h ago" :
+        timeOffline.TotalMinutes >= 1 ? $"{(int)timeOffline.TotalMinutes}m ago" : "Just now";
+
+    private static string GetRankIcon(int rank) => rank switch
+    {
+        1 => "👑",
+        2 => "🥈",
+        3 => "🥉",
+        _ => ""
+    };
+
+    private static string GetRankText(int rank) => rank switch
+    {
+        1 => "1st",
+        2 => "2nd",
+        3 => "3rd",
+        _ => $"{rank}th"
+    };
+
+    private static string GetStatusClass(string status) => status.ToLower().Replace(" ", "-");
+
+    private static string GetTimelineColor(string type) => type switch
+    {
+        "created" => "blue",
+        "inspect" => "blue",
+        "waiting" => "orange",
+        "sparepart" => "orange",
+        "repair" => "purple",
+        "thirdparty" => "purple",
+        "finished" => "green",
+        "rejected" => "red",
+        "unrepairable" => "red",
+        _ => "gray"
+    };
+    #endregion
+}
+
+<style>
+    /* Main Container */
+    .smdash-main-container {
+        padding: 20px;
+        background-color: #f7f8fc;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .smdash-content-wrapper {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 24px;
+        max-width: 1400px;
+        margin: 0 auto;
+        align-items: start;
+    }
+
+    /* Clean Card Design */
+    .smdash-schedules-card,
+    .smdash-clients-card {
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e1e5e9;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .smdash-schedules-card {
+        height: 440px;
+    }
+
+    .smdash-clients-card {
+        height: 440px;
+    }
+
+    /* Clean Headers */
+    .smdash-schedules-header,
+    .smdash-clients-header {
+        padding: 14px 20px;
+        border-bottom: 1px solid #e1e5e9;
+        background-color: #ffffff;
+        flex-shrink: 0;
+    }
+
+    .smdash-clients-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    .smdash-header-left {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .smdash-view-options {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .smdash-radio-option {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+        .smdash-radio-option input[type="radio"] {
+            width: 12px;
+            height: 12px;
+            margin: 0;
+            accent-color: #4f46e5;
+        }
+
+    .smdash-radio-text {
+        font-weight: 500;
+        user-select: none;
+    }
+
+    .smdash-radio-option:hover .smdash-radio-text {
+        color: #4f46e5;
+    }
+
+    .smdash-schedules-title,
+    .smdash-clients-title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: #111827;
+    }
+
+    .smdash-status-indicator {
+        display: none;
+    }
+
+    .smdash-online-badge {
+        background: #10b981;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 14px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .smdash-offline-badge {
+        background: #6b7280;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 14px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    /* Enhanced Search Section with Dropdown */
+    .smdash-search-section {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        margin-top: 12px;
+        position: relative;
+    }
+
+    .smdash-search-input-container {
+        flex: 1;
+        position: relative;
+    }
+
+    .smdash-search-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 13px;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+        .smdash-search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+    .smdash-search-btn {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+        .smdash-search-btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+    .smdash-clear-btn {
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+        .smdash-clear-btn:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+    /* Report Number Dropdown */
+    .smdash-report-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        max-height: 300px;
+        overflow-y: auto;
+        margin-top: 2px;
+    }
+
+    .smdash-report-dropdown-header {
+        padding: 8px 12px;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 11px;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+    }
+
+    .smdash-report-dropdown-item {
+        padding: 10px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f3f4f6;
+        transition: all 0.2s ease;
+    }
+
+        .smdash-report-dropdown-item:hover {
+            background: #f8fafc;
+        }
+
+        .smdash-report-dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+    .smdash-report-main {
+        font-size: 13px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 3px;
+    }
+
+    .smdash-report-details {
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 2px;
+    }
+
+    .smdash-report-status {
+        font-size: 11px;
+        color: #4f46e5;
+        font-weight: 500;
+    }
+
+    /* Selected Report Display */
+    .smdash-selected-report {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        padding: 6px 10px;
+        background: #eff6ff;
+        border: 1px solid #bae6fd;
+        border-radius: 6px;
+        font-size: 12px;
+    }
+
+    .smdash-selected-label {
+        color: #0369a1;
+        font-weight: 500;
+    }
+
+    .smdash-selected-value {
+        color: #0284c7;
+        font-weight: 600;
+        background: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    /* Enhanced Report Number Display in Schedule Items */
+    .smdash-schedule-report {
+        font-size: 11px;
+        color: #059669;
+        font-weight: 600;
+        background: #d1fae5;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-top: 4px;
+        display: inline-block;
+    }
+
+    /* Enhanced Rank Badges - More Prominent */
+    .smdash-rank-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        min-width: 50px;
+        height: 28px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+        margin-right: 12px;
+        flex-shrink: 0;
+        position: relative;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: linear-gradient(135deg, var(--rank-color-1), var(--rank-color-2));
+        transition: all 0.3s ease;
+    }
+
+        .smdash-rank-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+    .smdash-rank-1 {
+        --rank-color-1: #fbbf24;
+        --rank-color-2: #f59e0b;
+        background: linear-gradient(135deg, #fcd34d, #f59e0b);
+        animation: smdash-goldShimmer 2s ease-in-out infinite alternate;
+    }
+
+    .smdash-rank-2 {
+        --rank-color-1: #d1d5db;
+        --rank-color-2: #9ca3af;
+        background: linear-gradient(135deg, #e5e7eb, #9ca3af);
+        animation: smdash-silverShimmer 2s ease-in-out infinite alternate;
+    }
+
+    .smdash-rank-3 {
+        --rank-color-1: #d2691e;
+        --rank-color-2: #cd853f;
+        background: linear-gradient(135deg, #daa520, #cd853f);
+        animation: smdash-bronzeShimmer 2s ease-in-out infinite alternate;
+    }
+
+    .smdash-rank-icon {
+        font-size: 14px;
+        line-height: 1;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+    }
+
+    .smdash-rank-text {
+        font-size: 10px;
+        font-weight: 800;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        letter-spacing: 0.5px;
+    }
+
+    /* Profile Container with Rank Overlay */
+    .smdash-profile-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .smdash-rank-overlay {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid white;
+        z-index: 10;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .smdash-rank-overlay-1 {
+        background: linear-gradient(135deg, #fcd34d, #f59e0b);
+    }
+
+    .smdash-rank-overlay-2 {
+        background: linear-gradient(135deg, #e5e7eb, #9ca3af);
+    }
+
+    .smdash-rank-overlay-3 {
+        background: linear-gradient(135deg, #daa520, #cd853f);
+    }
+
+    /* Scrollable Bodies */
+    .smdash-schedules-body {
+        padding: 0;
+        flex: 1;
+        overflow-y: auto;
+        background-color: #ffffff;
+    }
+
+    .smdash-clients-body {
+        padding: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background-color: #ffffff;
+    }
+
+    /* Clean Schedule Items */
+    .smdash-schedule-item {
+        display: flex;
+        padding: 16px 20px;
+        align-items: flex-start;
+        border-bottom: 1px solid #f3f4f6;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+
+        .smdash-schedule-item:hover {
+            background-color: #f8fafc;
+            border-left: 3px solid #3b82f6;
+            padding-left: 17px;
+        }
+
+        .smdash-schedule-item:last-child {
+            border-bottom: none;
+        }
+
+            .smdash-schedule-item:last-child .smdash-timeline-line {
+                display: none;
+            }
+
+    .smdash-schedule-time {
+        min-width: 60px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #6b7280;
+        margin-right: 14px;
+        flex-shrink: 0;
+        padding-top: 2px;
+    }
+
+    .smdash-timeline-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-right: 14px;
+        position: relative;
+    }
+
+    .smdash-timeline-circle {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        z-index: 2;
+        position: relative;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .smdash-timeline-blue {
+        background-color: #3b82f6;
+    }
+
+    .smdash-timeline-orange {
+        background-color: #f59e0b;
+        animation: smdash-pulse-warning 2s infinite;
+    }
+
+    .smdash-timeline-purple {
+        background-color: #8b5cf6;
+    }
+
+    .smdash-timeline-green {
+        background-color: #10b981;
+        animation: smdash-pulse-success 2s infinite;
+    }
+
+    .smdash-timeline-red {
+        background-color: #ef4444;
+    }
+
+    .smdash-timeline-gray {
+        background-color: #6b7280;
+    }
+
+    .smdash-timeline-line {
+        width: 2px;
+        height: 40px;
+        background: linear-gradient(to bottom, #e5e7eb, #f3f4f6);
+        margin-top: 6px;
+        border-radius: 1px;
+    }
+
+    .smdash-schedule-content {
+        flex: 1;
+    }
+
+    .smdash-schedule-main-text {
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+        line-height: 1.4;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        .smdash-schedule-main-text:before {
+            content: "●";
+            color: #3b82f6;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+    .smdash-schedule-sub-text {
+        font-size: 12px;
+        color: #6b7280;
+        line-height: 1.3;
+        margin-bottom: 4px;
+    }
+
+    /* Serial number styling */
+    .smdash-schedule-serial {
+        font-size: 11px;
+        color: #4f46e5;
+        font-weight: 600;
+        background: #f0f9ff;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-top: 4px;
+        display: inline-block;
+        margin-right: 6px;
+    }
+
+    /* Current status highlight */
+    .smdash-schedule-item:first-child {
+        background: linear-gradient(90deg, #eff6ff 0%, transparent 100%);
+        border-left: 3px solid #2563eb;
+        padding-left: 17px;
+    }
+
+        .smdash-schedule-item:first-child .smdash-schedule-main-text {
+            color: #2563eb;
+            font-weight: 700;
+        }
+
+        .smdash-schedule-item:first-child .smdash-timeline-circle {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+
+    /* Clean Table Design - Optimized for 6 users */
+    .smdash-clients-table-wrapper {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        height: 100%;
+    }
+
+    .smdash-clients-table-header {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1.2fr 30px;
+        gap: 12px;
+        padding: 10px 20px;
+        background-color: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+
+        .smdash-clients-table-header > div {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+    .smdash-clients-table-content {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Enhanced Client Rows - Clickable */
+    .smdash-client-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1.2fr 30px;
+        gap: 10px;
+        padding: 8px 20px;
+        border-bottom: 1px solid #f3f4f6;
+        align-items: center;
+        min-height: 50px;
+        max-height: 50px;
+        transition: all 0.3s ease;
+        position: relative;
+        cursor: pointer;
+    }
+
+        .smdash-client-row:hover {
+            background-color: #f8fafc;
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .smdash-client-row.selected {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding-left: 16px;
+        }
+
+        .smdash-client-row:last-child {
+            border-bottom: none;
+        }
+
+    .smdash-client-profile {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Row Indicator */
+    .smdash-row-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #9ca3af;
+        transition: all 0.3s ease;
+    }
+
+    .smdash-client-row:hover .smdash-row-indicator {
+        color: #4f46e5;
+        transform: translateX(4px);
+    }
+
+    /* Clean Profile Pictures - Enhanced for ranking */
+    .smdash-client-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        flex-shrink: 0;
+        transition: all 0.3s ease;
+    }
+
+    .smdash-client-profile-image {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        border: 2px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+
+    .smdash-client-row:hover .smdash-client-avatar,
+    .smdash-client-row:hover .smdash-client-profile-image {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .smdash-client-info {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .smdash-client-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.2;
+    }
+
+    .smdash-client-subject {
+        font-size: 11px;
+        color: #6b7280;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.2;
+    }
+
+    .smdash-client-status {
+        display: flex;
+        justify-content: flex-start;
+    }
+
+    /* Simple Status Design */
+    .smdash-status-badge {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 500;
+        min-width: 60px;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .smdash-status-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+    }
+
+    .smdash-offline-time {
+        font-size: 9px;
+        opacity: 0.8;
+        font-weight: 400;
+    }
+
+    .smdash-status-indicator {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .smdash-status-indicator-online {
+        background-color: #10b981;
+        animation: smdash-pulse 2s infinite;
+    }
+
+    .smdash-status-indicator-offline {
+        background-color: #6b7280;
+    }
+
+    .smdash-status-online {
+        background-color: #d1fae5;
+        color: #047857;
+    }
+
+    .smdash-status-offline {
+        background-color: #f3f4f6;
+        color: #6b7280;
+    }
+
+    /* Clean Repair Count Display */
+    .smdash-total-repair {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .smdash-total-count {
+        font-size: 20px;
+        font-weight: 700;
+        color: #4f46e5;
+        line-height: 1;
+        transition: all 0.3s ease;
+    }
+
+    .smdash-client-row:hover .smdash-total-count {
+        transform: scale(1.1);
+    }
+
+    .smdash-current-month-count {
+        color: #059669 !important;
+    }
+
+    .smdash-total-label {
+        font-size: 10px;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .smdash-client-repair {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .smdash-repair-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        text-align: center;
+    }
+
+    .smdash-repair-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: #111827;
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+        text-align: center;
+        max-width: none;
+    }
+
+    .smdash-repair-count {
+        font-size: 10px;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .smdash-no-repairs {
+        font-size: 11px;
+        color: #9ca3af;
+        font-style: italic;
+        text-align: center;
+    }
+
+    /* Loading States */
+    .smdash-loading,
+    .smdash-no-data,
+    .smdash-error {
+        padding: 40px 20px;
+        text-align: center;
+        color: #6b7280;
+        font-size: 13px;
+    }
+
+    .smdash-error {
+        color: #dc2626;
+    }
+
+    /* Clean Scrollbar */
+    .smdash-clients-table-content::-webkit-scrollbar,
+    .smdash-schedules-body::-webkit-scrollbar,
+    .smdash-report-dropdown::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .smdash-clients-table-content::-webkit-scrollbar-track,
+    .smdash-schedules-body::-webkit-scrollbar-track,
+    .smdash-report-dropdown::-webkit-scrollbar-track {
+        background: #f3f4f6;
+    }
+
+    .smdash-clients-table-content::-webkit-scrollbar-thumb,
+    .smdash-schedules-body::-webkit-scrollbar-thumb,
+    .smdash-report-dropdown::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 2px;
+    }
+
+        .smdash-clients-table-content::-webkit-scrollbar-thumb:hover,
+        .smdash-schedules-body::-webkit-scrollbar-thumb:hover,
+        .smdash-report-dropdown::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+    .smdash-header-repair {
+        text-align: center;
+    }
+
+    /* Modal styles */
+    .smdash-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+        animation: smdash-fadeIn 0.3s ease;
+        padding: 20px;
+    }
+
+    .smdash-modal-container {
+        background: white;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 750px;
+        height: 90vh;
+        max-height: 800px;
+        overflow: hidden;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+        animation: smdash-slideInUp 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .smdash-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e5e7eb;
+        background-color: #f9fafb;
+        flex-shrink: 0;
+    }
+
+    .smdash-modal-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #111827;
+    }
+
+    .smdash-modal-close-btn {
+        background: none;
+        border: none;
+        padding: 8px;
+        cursor: pointer;
+        color: #6b7280;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+        .smdash-modal-close-btn:hover {
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+
+    .smdash-modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    /* Detail Profile Section - Compact */
+    .smdash-detail-profile-section {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+
+    .smdash-detail-profile-image-container {
+        flex-shrink: 0;
+    }
+
+    .smdash-detail-profile-image {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #e5e7eb;
+    }
+
+    .smdash-detail-profile-avatar {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+        font-weight: 600;
+        border: 3px solid #e5e7eb;
+    }
+
+    .smdash-detail-profile-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .smdash-detail-name {
+        margin: 0 0 6px 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .smdash-detail-email {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: #6b7280;
+    }
+
+    .smdash-detail-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    .smdash-detail-status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    .smdash-detail-status-online {
+        background-color: #10b981;
+        animation: smdash-pulse 2s infinite;
+    }
+
+    .smdash-detail-status-offline {
+        background-color: #6b7280;
+    }
+
+    .smdash-detail-offline-time {
+        color: #9ca3af;
+        font-weight: 400;
+    }
+
+    .smdash-detail-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-shrink: 0;
+    }
+
+    .smdash-detail-stat-card {
+        background: #f9fafb;
+        padding: 12px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #e5e7eb;
+    }
+
+    .smdash-detail-stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #4f46e5;
+        margin-bottom: 4px;
+        word-break: break-all;
+    }
+
+    .smdash-detail-current-month {
+        color: #059669 !important;
+    }
+
+    .smdash-detail-stat-label {
+        font-size: 11px;
+        color: #6b7280;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .smdash-detail-repair-section {
+        margin-bottom: 20px;
+        flex-shrink: 0;
+    }
+
+    .smdash-detail-section-title {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #111827;
+    }
+
+    .smdash-detail-repair-card {
+        background: #f0f9ff;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #bae6fd;
+        text-align: center;
+    }
+
+    .smdash-detail-repair-name {
+        font-size: 15px;
+        font-weight: 600;
+        color: #0369a1;
+        margin-bottom: 4px;
+    }
+
+    .smdash-detail-repair-count {
+        font-size: 13px;
+        color: #0284c7;
+    }
+
+    .smdash-detail-repair-history-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .smdash-detail-repair-history {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .smdash-detail-repair-table-wrapper {
+        flex: 1;
+        min-height: 250px;
+        max-height: 400px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: white;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .smdash-detail-repair-table-container {
+        flex: 1;
+        width: 100%;
+        overflow: auto;
+        position: relative;
+        min-height: 0;
+    }
+
+    .smdash-detail-repair-table {
+        width: 100%;
+        min-width: 900px;
+        border-collapse: collapse;
+        font-size: 13px;
+        table-layout: auto;
+    }
+
+        .smdash-detail-repair-table thead {
+            background: #f9fafb;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .smdash-detail-repair-table th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            white-space: nowrap;
+            background: #f9fafb;
+        }
+
+        .smdash-detail-repair-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f3f4f6;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .smdash-detail-repair-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .smdash-detail-repair-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+    .smdash-th-date, .smdash-td-date {
+        min-width: 120px;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .smdash-th-company, .smdash-td-company {
+        min-width: 250px;
+        color: #111827;
+        font-weight: 500;
+        max-width: 350px;
+    }
+
+    .smdash-th-item, .smdash-td-item {
+        min-width: 200px;
+        color: #111827;
+        font-weight: 500;
+        max-width: 300px;
+    }
+
+    .smdash-th-serial, .smdash-td-serial {
+        min-width: 150px;
+        color: #111827;
+        font-weight: 500;
+        max-width: 200px;
+    }
+
+    .smdash-th-status, .smdash-td-status {
+        min-width: 100px;
+        text-align: center;
+    }
+
+    .smdash-status-badge-table {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        white-space: nowrap;
+    }
+
+    .smdash-status-finished {
+        background: #d1fae5;
+        color: #047857;
+    }
+
+    .smdash-status-pending {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .smdash-status-in-progress {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .smdash-status-cancelled {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .smdash-detail-repair-table-container::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
+
+    .smdash-detail-repair-table-container::-webkit-scrollbar-track {
+        background: #f3f4f6;
+        border-radius: 6px;
+    }
+
+    .smdash-detail-repair-table-container::-webkit-scrollbar-thumb {
+        background: #9ca3af;
+        border-radius: 6px;
+        border: 2px solid #f3f4f6;
+    }
+
+        .smdash-detail-repair-table-container::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+    .smdash-detail-repair-table-container::-webkit-scrollbar-corner {
+        background: #f3f4f6;
+    }
+
+    .smdash-detail-loading {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6b7280;
+        font-style: italic;
+    }
+
+    .smdash-detail-no-data {
+        text-align: center;
+        padding: 40px 20px;
+        color: #9ca3af;
+        font-style: italic;
+        background: #f9fafb;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+    }
+
+   
+</style> *@

@@ -1,0 +1,19 @@
+﻿@page "/employeelist"
+@inherits EmployeeListBase
+
+<h3>Add to Cart - @SelectedEmployeesCount</h3>
+<input type="checkbox" id="showFooter" @bind="ShowFooter" /><label for="showFooter">Show Footer</label>
+<div class="card-deck">
+    @if (Employees == null || !Employees.Any())
+    {
+        <p>No employees found.</p>
+    }
+    else
+    {
+        @foreach (var employee in Employees)
+        {
+            <DisplayButtonEmployeeList Employee="employee" ShowFooter="ShowFooter" OnEmployeeSelection="EmployeeSelectionChanged" OnEmployeeDeleted="EmployeeDeleted">
+            </DisplayButtonEmployeeList>
+        }
+    }
+</div>
